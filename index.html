@@ -39,9 +39,9 @@ const analytics = getAnalytics(app);
             overflow-y: auto;
             scrollbar-width: none; /* Firefox */
         }
-        .list-container::-webkit-scrollbar {
-            display: none; /* Chrome, Safari, Opera */
-        }
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-finance-app-id';
+            const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
     </style>
     <!-- Importaciones de Firebase -->
     <script type="module">
@@ -711,6 +711,7 @@ const analytics = getAnalytics(app);
     </div>
 </body>
 </html>
+
 
 
 
