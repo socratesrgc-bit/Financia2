@@ -4,30 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Control de Ingresos y Gastos</title>
-    <!-- Carga de Tailwind CSS para estilos modernos y responsivos -->
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        // Import the functions you need from the SDKs you need
-import { initializeApp } from "firebase/app";
-import { getAnalytics } from "firebase/analytics";
-// TODO: Add SDKs for Firebase products that you want to use
-// https://firebase.google.com/docs/web/setup#available-libraries
-
-// Your web app's Firebase configuration
-// For Firebase JS SDK v7.20.0 and later, measurementId is optional
-const firebaseConfig = {
-  apiKey: "AIzaSyCil5A3PMp9-vUY5qTK_wbTmLtStqAEs9E",
-  authDomain: "financia2-4f80e.firebaseapp.com",
-  projectId: "financia2-4f80e",
-  storageBucket: "financia2-4f80e.firebasestorage.app",
-  messagingSenderId: "1076125827715",
-  appId: "1:1076125827715:web:6cdb2eb77a937be4fe11b6",
-  measurementId: "G-VYEJ3H6F9G"
-};
-
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
-const analytics = getAnalytics(app);
         /* Fuente Inter por defecto y estilo de fondo */
         body {
             font-family: 'Inter', sans-serif;
@@ -39,11 +17,7 @@ const analytics = getAnalytics(app);
             overflow-y: auto;
             scrollbar-width: none; /* Firefox */
         }
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-finance-app-id';
-            const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
-        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
     </style>
-    <!-- Importaciones de Firebase -->
     <script type="module">
         
         // --- AUTODIAGNÓSTICO CRÍTICO PARA USO LOCAL ---
@@ -66,10 +40,18 @@ const analytics = getAnalytics(app);
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, addDoc, onSnapshot, collection, query, serverTimestamp, deleteDoc, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // --- Configuración e Inicialización de Firebase ---
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-finance-app-id';
-        const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
-        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+        // --- Configuración e Inicialización de Firebase (CORREGIDA) ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyCil5A3PMp9-vUY5qTK_wbTmLtStqAEs9E",
+            authDomain: "financia2-4f80e.firebaseapp.com",
+            projectId: "financia2-4f80e",
+            storageBucket: "financia2-4f80e.firebasestorage.app",
+            messagingSenderId: "1076125827715",
+            appId: "1:1076125827715:web:6cdb2eb77a937be4fe11b6"
+            // measurementId no es necesario para la inicialización básica
+        };
+        const appId = firebaseConfig.projectId; // Usa el Project ID como el App ID para la lógica interna
+        const initialAuthToken = null; // No usamos el token inicial en esta configuración
 
         const dbApp = initializeApp(firebaseConfig);
         const db = getFirestore(dbApp);
@@ -574,46 +556,37 @@ const analytics = getAnalytics(app);
             </p>
         </header>
 
-        <!-- Mensajes de error/éxito (INCLUYE AUTODIAGNÓSTICO) -->
         <div id="message-box" class="hidden"></div>
 
-        <!-- Sección de Resumen General -->
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
             
-            <!-- Total Ingresos -->
             <div class="bg-green-500 text-white rounded-xl p-4 shadow-lg">
                 <span class="text-sm font-medium uppercase tracking-wider block">Total Ingresos</span>
                 <span id="total-income" class="text-2xl sm:text-3xl font-black">S/ 0.00</span>
             </div>
 
-            <!-- Total Gastos -->
             <div class="bg-red-500 text-white rounded-xl p-4 shadow-lg">
                 <span class="text-sm font-medium uppercase tracking-wider block">Total Gastos</span>
                 <span id="total-expense" class="text-2xl sm:text-3xl font-black">S/ 0.00</span>
             </div>
 
-            <!-- Balance Neto -->
             <div class="bg-indigo-100 rounded-xl p-4 shadow-lg">
                 <span class="text-sm font-medium uppercase tracking-wider block text-gray-700">Balance Neto</span>
                 <span id="net-balance" class="text-3xl font-black text-gray-500">S/ 0.00</span>
             </div>
         </div>
         
-        <!-- Filtro por Mes -->
         <div class="p-4 bg-indigo-50 rounded-xl border border-indigo-200 shadow-inner">
             <label for="month-filter" class="block text-lg font-semibold text-indigo-700 mb-2">Filtrar por Mes:</label>
             <select id="month-filter" onchange="window.applyFilterAndRecalculate()"
                     class="w-full p-3 border border-indigo-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 bg-white">
                 <option value="all">Cargando...</option>
-                <!-- Opciones se llenarán con JS -->
-            </select>
+                </select>
         </div>
 
 
-        <!-- Sección de Añadir Transacción (Ingresos y Gastos) -->
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
         
-            <!-- Añadir Ingreso -->
             <div class="bg-green-50 p-6 rounded-xl border border-green-200 space-y-4">
                 <h2 class="text-2xl font-semibold text-green-700 flex items-center">
                     <span class="mr-2">➕</span> Registrar Ingreso
@@ -632,7 +605,6 @@ const analytics = getAnalytics(app);
                 </button>
             </div>
             
-            <!-- Añadir Gasto -->
             <div class="bg-red-50 p-6 rounded-xl border border-red-200 space-y-4">
                 <h2 class="text-2xl font-semibold text-red-700 flex items-center">
                     <span class="mr-2">➖</span> Registrar Gasto
@@ -652,66 +624,57 @@ const analytics = getAnalytics(app);
             </div>
         </div>
         
-        <!-- Sección de Herramientas (Análisis IA y Exportar CSV) -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
 
-            <!-- Análisis Financiero con IA -->
             <div class="bg-indigo-50 p-6 rounded-xl border border-indigo-200 space-y-4">
                 <h2 class="text-2xl font-semibold text-indigo-700 flex items-center">
                     <span class="mr-2">💡</span> Análisis Financiero con IA
                 </h2>
                 <button id="analyze-button" onclick="window.analyzeFinancesWithGemini()"
-                        class="w-full py-3 bg-indigo-500 hover:bg-indigo-600 text-white font-bold rounded-lg shadow-md transition duration-200 transform hover:scale-[1.005] focus:outline-none focus:ring-4 focus:ring-indigo-500 focus:ring-opacity-50">
-                    Obtener Análisis y Consejos
+                        class="w-full py-3 bg-indigo-500 hover:bg-indigo-600 text-white font-bold rounded-lg shadow-md transition duration-200">
+                    Generar Análisis con IA
                 </button>
-                <div id="analysis-result" class="p-4 bg-white rounded-lg border border-indigo-100 min-h-[50px] flex items-center justify-center">
-                    <p class="text-center text-gray-500 italic">Presiona el botón para recibir consejos de un asesor financiero virtual.</p>
+                <div id="analysis-result" class="mt-4 p-4 bg-white rounded-lg border border-gray-200 shadow-sm text-sm">
+                    <p class="text-gray-500 italic">Haz clic en el botón para obtener un resumen y consejos sobre el periodo filtrado.</p>
                 </div>
             </div>
 
-            <!-- Exportar a CSV -->
-            <div class="bg-gray-100 p-6 rounded-xl border border-gray-300 space-y-4 flex flex-col justify-between">
+            <div class="bg-gray-50 p-6 rounded-xl border border-gray-200 space-y-4 flex flex-col justify-between">
                 <div>
-                    <h2 class="text-2xl font-semibold text-gray-700 flex items-center mb-3">
-                        <span class="mr-2">💾</span> Exportar Registros
+                    <h2 class="text-2xl font-semibold text-gray-700 flex items-center">
+                        <span class="mr-2">💾</span> Exportar Datos
                     </h2>
-                    <p class="text-sm text-gray-600">Descarga un archivo CSV con tus transacciones **filtradas**.</p>
+                    <p class="text-sm text-gray-600 mt-2">Exporta los ingresos y gastos del periodo **actualmente filtrado** a un archivo CSV (compatible con Excel).</p>
                 </div>
-                <button id="export-button" onclick="window.exportDataToCSV()"
-                        class="w-full py-3 bg-gray-700 hover:bg-gray-800 text-white font-bold rounded-lg shadow-md transition duration-200 focus:outline-none focus:ring-4 focus:ring-gray-400 focus:ring-opacity-50 mt-4">
+                <button onclick="window.exportDataToCSV()"
+                        class="w-full py-3 bg-gray-500 hover:bg-gray-600 text-white font-bold rounded-lg shadow-md transition duration-200">
                     Descargar CSV
                 </button>
             </div>
 
         </div>
 
-        <!-- Sección de Detalle de Transacciones -->
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <!-- Lista de Ingresos -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 pt-4 border-t border-gray-200">
+
             <div>
-                <h2 class="text-2xl font-semibold text-green-700 mb-4">📈 Detalle de Ingresos</h2>
-                <div id="income-list-container" class="list-container rounded-xl border border-green-200 p-2 bg-white shadow-inner">
-                    <ul id="income-list">
-                        <li class="text-center py-4 text-gray-500 italic">Cargando ingresos...</li>
-                    </ul>
-                </div>
+                <h2 class="text-2xl font-semibold text-green-700 mb-3">Historial de Ingresos</h2>
+                <ul id="income-list" class="list-container pr-2 space-y-1">
+                    <li class="text-center py-4 text-gray-500 italic">Cargando ingresos...</li>
+                </ul>
             </div>
 
-            <!-- Lista de Gastos -->
             <div>
-                <h2 class="text-2xl font-semibold text-red-700 mb-4">📉 Detalle de Gastos</h2>
-                <div id="expense-list-container" class="list-container rounded-xl border border-red-200 p-2 bg-white shadow-inner">
-                    <ul id="expense-list">
-                        <li class="text-center py-4 text-gray-500 italic">Cargando gastos...</li>
-                    </ul>
-                </div>
+                <h2 class="text-2xl font-semibold text-red-700 mb-3">Historial de Gastos</h2>
+                <ul id="expense-list" class="list-container pr-2 space-y-1">
+                    <li class="text-center py-4 text-gray-500 italic">Cargando gastos...</li>
+                </ul>
             </div>
         </div>
-        
+
+        <footer class="text-center pt-4 text-xs text-gray-400 border-t border-gray-100">
+            Control Financiero impulsado por Firebase y Gemini API.
+        </footer>
+
     </div>
 </body>
 </html>
-
-
-
-
