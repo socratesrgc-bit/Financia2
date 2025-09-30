@@ -21,6 +21,7 @@
             min-height: 100vh;
         }
         .glass-card {
+            /* Usamos un fondo blanco semi-transparente para un look limpio */
             background: rgba(255, 255, 255, 0.95);
             backdrop-filter: blur(10px);
             border: 1px solid rgba(255, 255, 255, 0.2);
@@ -229,7 +230,7 @@
                     </span>
                 </div>
                 <ul id="income-list" class="list-container space-y-3">
-                    <li class="text-center py-4 text-gray-500">Esperando datos...</li>
+                    <!-- Los datos se cargarán aquí -->
                 </ul>
             </div>
 
@@ -241,7 +242,7 @@
                     </span>
                 </div>
                 <ul id="expense-list" class="list-container space-y-3">
-                    <li class="text-center py-4 text-gray-500">Esperando datos...</li>
+                    <!-- Los datos se cargarán aquí -->
                 </ul>
             </div>
         </div>
@@ -317,7 +318,7 @@
                         <span class="font-medium">${message}</span>
                     </div>
                     <button onclick="document.getElementById('message-box').classList.add('hidden')" 
-                            class="text-gray-400 hover:text-gray-600">
+                            class="text-gray-400 hover:text-gray-600 transition-colors duration-200">
                         ✕
                     </button>
                 </div>
@@ -374,7 +375,9 @@
 
         // --- FUNCIONES CRUD Y MANEJO DE ESTADO ---
 
-        /** Elimina una transacción de Firestore. */
+        /** * Elimina una transacción de Firestore. 
+         * Esta función debe ser global (window.) para ser llamada desde el HTML dinámico.
+         */
         window.deleteTransaction = async function(id, type) {
             if (!isAuthReady) return showMessage("Autenticación no lista. Intenta de nuevo.", 'warning');
             const collectionName = type === 'income' ? 'incomes' : 'expenses';
@@ -387,7 +390,6 @@
                 // onSnapshot se encargará de actualizar la vista
             } catch (error) {
                 console.error("Error al eliminar la transacción:", error);
-                // Usamos un modal para errores críticos si fuera necesario, pero por ahora solo mensaje
                 showMessage(`Error al eliminar: ${error.message}`);
             }
         };
@@ -440,29 +442,30 @@
             currentIncomes = [];
             currentExpenses = [];
             
-            const incomeFilter = income => {
+            // Función de filtrado por mes/año
+            const filterByMonth = (transaction) => {
                 if (selectedValue === 'all') return true;
-                const date = new Date(income.timestamp);
-                const month = date.getMonth() + 1;
-                const year = date.getFullYear();
-                return `${String(month).padStart(2, '0')}-${year}` === selectedValue;
-            };
-
-            const expenseFilter = expense => {
-                if (selectedValue === 'all') return true;
-                const date = new Date(expense.timestamp);
+                const date = new Date(transaction.timestamp);
                 const month = date.getMonth() + 1;
                 const year = date.getFullYear();
                 return `${String(month).padStart(2, '0')}-${year}` === selectedValue;
             };
             
+            // Función para mostrar mensaje de lista vacía
+            const getEmptyMessage = (type) => `
+                <li class="text-center py-8 text-gray-400">
+                    <div class="text-4xl mb-2">${type === 'income' ? '💰' : '💸'}</div>
+                    <p class="text-sm">No hay ${type === 'income' ? 'ingresos' : 'gastos'} registrados para este periodo</p>
+                </li>
+            `;
+
             // --- PROCESAR INGRESOS ---
             elements.incomeList.innerHTML = '';
-            // Ordenamos primero por timestamp (más reciente primero)
-            const filteredIncomes = allIncomes.filter(incomeFilter).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+            // Ordenamos por timestamp (más reciente primero) y aplicamos el filtro
+            const filteredIncomes = allIncomes.filter(filterByMonth).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
             
             if (filteredIncomes.length === 0) {
-                elements.incomeList.innerHTML = `<li class="text-center py-8 text-gray-400"><div class="text-4xl mb-2">💰</div><p class="text-sm">No hay ingresos registrados para este periodo</p></li>`;
+                elements.incomeList.innerHTML = getEmptyMessage('income');
             } else {
                 filteredIncomes.forEach(income => {
                     totalIncome += income.amount;
@@ -471,7 +474,7 @@
                     const dateStr = new Date(income.timestamp).toLocaleDateString('es-PE');
                     const safeId = income.id;
                     
-                    // IMPORTANTE: El onclick debe ser un string válido para la función global
+                    // Renderiza el ítem con el botón de eliminar
                     elements.incomeList.innerHTML += `
                         <li class="flex justify-between items-center p-4 bg-green-50 border border-green-200 rounded-lg transition-all duration-200 hover:shadow-md">
                             <div class="flex-1 min-w-0 pr-2">
@@ -484,7 +487,7 @@
                                 </span>
                                 <button onclick="deleteTransaction('${safeId}', 'income')" 
                                         class="delete-btn text-gray-400 hover:text-red-500 transition-colors duration-200 p-1 rounded"
-                                        title="Eliminar">
+                                        title="Eliminar Ingreso">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
                                     </svg>
@@ -497,11 +500,11 @@
 
             // --- PROCESAR GASTOS ---
             elements.expenseList.innerHTML = '';
-            // Ordenamos primero por timestamp (más reciente primero)
-            const filteredExpenses = allExpenses.filter(expenseFilter).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+            // Ordenamos por timestamp (más reciente primero) y aplicamos el filtro
+            const filteredExpenses = allExpenses.filter(filterByMonth).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
             
             if (filteredExpenses.length === 0) {
-                elements.expenseList.innerHTML = `<li class="text-center py-8 text-gray-400"><div class="text-4xl mb-2">💸</div><p class="text-sm">No hay gastos registrados para este periodo</p></li>`;
+                elements.expenseList.innerHTML = getEmptyMessage('expense');
             } else {
                 filteredExpenses.forEach(expense => {
                     totalExpenses += expense.amount;
@@ -510,7 +513,7 @@
                     const dateStr = new Date(expense.timestamp).toLocaleDateString('es-PE');
                     const safeId = expense.id;
 
-                    // IMPORTANTE: El onclick debe ser un string válido para la función global
+                    // Renderiza el ítem con el botón de eliminar
                     elements.expenseList.innerHTML += `
                         <li class="flex justify-between items-center p-4 bg-red-50 border border-red-200 rounded-lg transition-all duration-200 hover:shadow-md">
                             <div class="flex-1 min-w-0 pr-2">
@@ -523,7 +526,7 @@
                                 </span>
                                 <button onclick="deleteTransaction('${safeId}', 'expense')" 
                                         class="delete-btn text-gray-400 hover:text-red-500 transition-colors duration-200 p-1 rounded"
-                                        title="Eliminar">
+                                        title="Eliminar Gasto">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
                                     </svg>
@@ -577,29 +580,30 @@
             let optionsHTML = `<option value="all">📅 Todos los meses</option>`;
             const today = new Date();
             const currentMonthValue = `${String(today.getMonth() + 1).padStart(2, '0')}-${today.getFullYear()}`;
-            let hasCurrentMonth = false;
+            let selectedOptionValue = elements.monthFilter.value; // Mantener la selección actual si existe
+
+            if (!selectedOptionValue || !sortedMonths.includes(selectedOptionValue)) {
+                // Si no hay selección o la selección no existe, intentar usar el mes actual
+                selectedOptionValue = currentMonthValue;
+            }
 
             sortedMonths.forEach(value => {
                 const [monthNum, year] = value.split('-').map(Number);
                 const label = `${monthNames[monthNum - 1]} ${year}`;
                 const emoji = value === currentMonthValue ? '🎯' : '📊';
                 
-                if (value === currentMonthValue) hasCurrentMonth = true;
-
-                optionsHTML += `<option value="${value}" ${value === elements.monthFilter.value ? 'selected' : ''}>${emoji} ${label}</option>`;
+                optionsHTML += `<option value="${value}" ${value === selectedOptionValue ? 'selected' : ''}>${emoji} ${label}</option>`;
             });
 
-            // Si el mes actual no está en los datos, lo añadimos si no hay una selección previa
-            if (!hasCurrentMonth && !sortedMonths.includes(currentMonthValue)) {
+            // Si el mes actual no estaba en la lista de transacciones, pero es el mes seleccionado, lo agregamos.
+            if (!sortedMonths.includes(currentMonthValue) && selectedOptionValue === currentMonthValue) {
                  const currentMonthLabel = `${monthNames[today.getMonth()]} ${today.getFullYear()}`;
-                 optionsHTML = `<option value="${currentMonthValue}" selected>🎯 ${currentMonthLabel}</option>` + optionsHTML;
-                 elements.monthFilter.value = currentMonthValue; // Establecer el valor por defecto si no hay selección previa
-            } else if (!elements.monthFilter.value) {
-                 elements.monthFilter.value = currentMonthValue;
+                 optionsHTML = `<option value="${currentMonthValue}" selected>🎯 ${currentMonthLabel}</option>` + optionsHTML.replace(`<option value="all">📅 Todos los meses</option>`, '');
+                 optionsHTML = `<option value="all">📅 Todos los meses</option>` + optionsHTML;
             }
 
             elements.monthFilter.innerHTML = optionsHTML;
-            
+            elements.monthFilter.value = selectedOptionValue; // Asegurar que el valor seleccionado se aplique
         }
 
         // --- LÓGICA DE LA IA DE GEMINI (CON EXPONENTIAL BACKOFF) ---
@@ -752,6 +756,7 @@
                 if (initialAuthToken) {
                     await signInWithCustomToken(auth, initialAuthToken);
                 } else {
+                    // Si no hay token, iniciamos sesión anónima (siempre habrá un user object aquí)
                     await signInAnonymously(auth);
                 }
             } catch (error) {
@@ -766,18 +771,25 @@
 
         // Listener de estado de autenticación (Se ejecuta una vez al inicio y en cada cambio)
         onAuthStateChanged(auth, (user) => {
-            // FIX 2: Lógica de persistencia de usuario anónimo
             if (!listenersInitialized) {
-                if (user) {
+                if (user && user.isAnonymous === false) {
+                    // Usuario autenticado (ej. con token de autenticación)
                     userId = user.uid;
                     elements.userIdDisplay.textContent = `ID Usuario: ${userId}`;
+                    elements.authStatusDisplay.textContent = '✅ Sesión Autenticada';
+                    localStorage.removeItem(ANONYMOUS_USER_KEY); // Limpiar ID anónimo si hay autenticación real
                 } else {
-                    // Si no hay token de autenticación, intentamos recuperar el ID anónimo.
+                    // Usuario anónimo (ya sea por signInAnonymously o por no haber token)
                     let storedId = localStorage.getItem(ANONYMOUS_USER_KEY);
                     if (storedId) {
+                        // FIX 2: Usar ID persistente de localStorage
                         userId = storedId;
+                    } else if (user?.uid) {
+                        // Usar el UID del usuario anónimo recién creado y guardarlo
+                        userId = user.uid;
+                        localStorage.setItem(ANONYMOUS_USER_KEY, userId);
                     } else {
-                        // Si no hay ID anónimo, generamos uno nuevo y lo guardamos.
+                        // Fallback (esto solo debería ocurrir si Firebase no devuelve un UID)
                         userId = crypto.randomUUID(); 
                         localStorage.setItem(ANONYMOUS_USER_KEY, userId);
                     }
@@ -788,10 +800,6 @@
                 isAuthReady = true; 
                 setupFirestoreListeners(); 
                 listenersInitialized = true; 
-            } else if (user) {
-                // Si el usuario se autentica después (ej. con un proceso externo), actualizamos el ID.
-                userId = user.uid;
-                elements.userIdDisplay.textContent = `ID Usuario: ${userId}`;
             }
         });
 
@@ -810,18 +818,21 @@
         elements.analyzeButton.addEventListener('click', analyzeFinancesWithGemini);
 
         elements.exportBtn.addEventListener('click', () => {
-            exportToCSV(currentIncomes.concat(currentExpenses).map(t => ({
+            const dataToExport = currentIncomes.concat(currentExpenses).map(t => ({
                 id: t.id,
                 type: t.type,
                 name: t.name,
                 amount: t.amount,
                 timestamp: t.timestamp
-            })), `Finanzas_Export_${elements.monthFilter.value}.csv`);
+            }));
+            exportToCSV(dataToExport, `Finanzas_Export_${elements.monthFilter.value}.csv`);
         });
 
         // Iniciar el flujo de autenticación al cargar la página
         initializeAuth();
         
+        // Inicializar las listas vacías
+        filterAndRenderData();
     </script>
 </body>
 </html>
