@@ -4,14 +4,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Control de Ingresos y Gastos</title>
-    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
     
+    <!-- Carga del SDK de Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Configuración de la fuente Inter y Favicon -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>💰</text></svg>">
+    
     <style>
         body {
             font-family: 'Inter', sans-serif;
@@ -55,11 +57,14 @@
                 💰 Control Financiero Personal
             </h1>
             <p class="text-gray-600 mb-4">Gestiona tus ingresos y gastos en Soles Peruanos</p>
-            <div class="flex items-center justify-center space-x-4 text-sm text-gray-500">
-                <span id="user-id-display" class="bg-indigo-100 text-indigo-700 px-3 py-1 rounded-full">
-                    ☁️ Conectado (Firestore)
+            <div class="flex flex-wrap items-center justify-center space-x-2 sm:space-x-4 text-sm text-gray-500">
+                <span id="auth-status-display" class="bg-indigo-100 text-indigo-700 px-3 py-1 rounded-full text-xs sm:text-sm">
+                    ☁️ Autenticando...
                 </span>
-                <span class="bg-green-100 text-green-700 px-3 py-1 rounded-full">
+                <span id="user-id-display" class="bg-indigo-100 text-indigo-700 px-3 py-1 rounded-full text-xs sm:text-sm truncate max-w-[calc(100%-200px)] sm:max-w-none">
+                    ID Usuario: Cargando...
+                </span>
+                <span class="bg-green-100 text-green-700 px-3 py-1 rounded-full text-xs sm:text-sm">
                     💳 Soles (PEN)
                 </span>
             </div>
@@ -176,16 +181,16 @@
                     </div>
                     <div>
                         <h3 class="text-xl font-semibold text-gray-800">Análisis con IA</h3>
-                        <p class="text-sm text-gray-600">Obtén insights inteligentes</p>
+                        <p class="text-sm text-gray-600">Obtén insights inteligentes de Gemini</p>
                     </div>
                 </div>
                 
                 <button id="analyze-button"
-                        class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-4 rounded-xl transition-colors duration-200 mb-4">
+                        class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-4 rounded-xl transition-colors duration-200 mb-4 disabled:opacity-50 disabled:cursor-not-allowed">
                     🤖 Generar Análisis con IA
                 </button>
                 
-                <div id="analysis-result" class="bg-gray-50 rounded-xl p-4 min-h-[120px]">
+                <div id="analysis-result" class="bg-gray-50 rounded-xl p-4 min-h-[120px] shadow-inner">
                     <p class="text-gray-500 text-center italic py-4">
                         Haz clic en el botón para obtener un análisis inteligente de tus finanzas
                     </p>
@@ -199,17 +204,17 @@
                     </div>
                     <div>
                         <h3 class="text-xl font-semibold text-gray-800">Exportar Datos</h3>
-                        <p class="text-sm text-gray-600">Guarda tu información</p>
+                        <p class="text-sm text-gray-600">Guarda tu información en CSV</p>
                     </div>
                 </div>
                 
                 <div class="space-y-3">
                     <button id="export-btn"
                             class="w-full bg-gray-600 hover:bg-gray-700 text-white font-semibold py-3 px-4 rounded-xl transition-colors duration-200 flex items-center justify-center">
-                        <span class="mr-2">📥</span> Descargar CSV
+                        <span class="mr-2">📥</span> Descargar CSV (Datos Filtrados)
                     </button>
                     <p class="text-xs text-gray-500 text-center">
-                        Exporta tus transacciones a formato CSV compatible con Excel
+                        Exporta solo las transacciones del periodo seleccionado a formato CSV.
                     </p>
                 </div>
             </div>
@@ -224,7 +229,8 @@
                     </span>
                 </div>
                 <ul id="income-list" class="list-container space-y-3">
-                    </ul>
+                    <li class="text-center py-4 text-gray-500">Esperando datos...</li>
+                </ul>
             </div>
 
             <div class="glass-card rounded-2xl p-6 border border-red-200">
@@ -235,37 +241,43 @@
                     </span>
                 </div>
                 <ul id="expense-list" class="list-container space-y-3">
-                    </ul>
+                    <li class="text-center py-4 text-gray-500">Esperando datos...</li>
+                </ul>
             </div>
         </div>
     </div>
 
-    <script>
-        // --- CONFIGURACIÓN FIREBASE (REEMPLAZA ESTOS VALORES) ---
-        const firebaseConfig = {
-            apiKey: "AIzaSyCil5A3PMp9-vUY5qTK_wbvUY5qTK_wbvUY5qTK_wb", // ¡TU CLAVE ESTÁ AQUÍ!
-            authDomain: "TU_AUTH_DOMAIN_AQUI", // Ejem: "app-finanzas-1234.firebaseapp.com"
-            projectId: "TU_PROJECT_ID_AQUI",     // Ejem: "app-finanzas-1234"
-            storageBucket: "TU_STORAGE_BUCKET_AQUI",
-            messagingSenderId: "TU_MESSAGING_SENDER_ID_AQUI",
-            appId: "TU_APP_ID_AQUI"
-        };
+    <!-- Script para Firebase, Auth, Firestore y Lógica de la App -->
+    <script type="module">
+        // Importaciones del SDK Modular de Firebase
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, addDoc, setDoc, deleteDoc, onSnapshot, collection, query, where, Timestamp, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // Inicializar Firebase
-        const app = firebase.initializeApp(firebaseConfig);
-        const db = app.firestore();
-        // Usamos un ID fijo por ahora. En una app real, vendría de firebase.auth().currentUser.uid
-        let userId = 'usuario_principal_peru'; 
+        // --- CONFIGURACIÓN Y AUTENTICACIÓN FIREBASE (MANDATORIO) ---
+        // Variables globales proporcionadas por el entorno de Canvas
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+        
+        // Inicialización de Firebase
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
+        setLogLevel('debug'); // Logging requerido para Canvas
 
-        // Variables globales para los datos (se llenarán desde Firestore)
+        let userId = null;
+        let isAuthReady = false;
+        let listenersInitialized = false; // <-- NUEVO: Bandera para asegurar que onSnapshot solo se inicie una vez.
+        
+        // Variables globales para almacenar TODOS los datos (sin filtrar)
         let allIncomes = []; 
         let allExpenses = []; 
-        let currentIncomes = []; // Datos filtrados
-        let currentExpenses = []; // Datos filtrados
-        // --- FIN CONFIGURACIÓN FIREBASE ---
-
-
-        // Referencias de elementos (Misma que antes)
+        // Variables para almacenar los datos actualmente filtrados y mostrados
+        let currentIncomes = [];
+        let currentExpenses = [];
+        
+        // --- REFERENCIAS DE ELEMENTOS DEL DOM ---
         const elements = {
             incomeName: document.getElementById('income-name'),
             incomeAmount: document.getElementById('income-amount'),
@@ -277,6 +289,7 @@
             incomeList: document.getElementById('income-list'),
             expenseList: document.getElementById('expense-list'),
             userIdDisplay: document.getElementById('user-id-display'),
+            authStatusDisplay: document.getElementById('auth-status-display'),
             messageBox: document.getElementById('message-box'),
             monthFilter: document.getElementById('month-filter'),
             analyzeButton: document.getElementById('analyze-button'),
@@ -287,8 +300,10 @@
             addExpenseBtn: document.getElementById('add-expense-btn'),
             exportBtn: document.getElementById('export-btn')
         };
+        
+        // --- UTILIDADES ---
 
-        // Utilidades (Mismas que antes)
+        /** Muestra un mensaje temporal en la caja de notificaciones. */
         function showMessage(message, type = 'error') {
             const icon = type === 'success' ? '✅' : type === 'warning' ? '⚠️' : '❌';
             const bgColor = type === 'success' ? 'bg-green-50' : type === 'warning' ? 'bg-yellow-50' : 'bg-red-50';
@@ -301,7 +316,7 @@
                         <span class="text-lg mr-3">${icon}</span>
                         <span class="font-medium">${message}</span>
                     </div>
-                    <button onclick="this.parentElement.parentElement.classList.add('hidden')" 
+                    <button onclick="document.getElementById('message-box').classList.add('hidden')" 
                             class="text-gray-400 hover:text-gray-600">
                         ✕
                     </button>
@@ -313,6 +328,7 @@
             }, 5000);
         }
 
+        /** Formatea un número a Soles Peruanos (PEN). */
         function formatCurrency(amount) {
             return new Intl.NumberFormat('es-PE', {
                 style: 'currency',
@@ -320,25 +336,65 @@
             }).format(amount);
         }
 
-        // --- FUNCIONES CRUD CON FIREBASE ---
+        /** Convierte un array a formato CSV y dispara la descarga. */
+        function exportToCSV(data, filename = 'finanzas_exportadas.csv') {
+            if (data.length === 0) {
+                showMessage('No hay datos filtrados para exportar.', 'warning');
+                return;
+            }
 
-        // Función para eliminar transacciones en Firestore
+            const headers = ['ID', 'Tipo', 'Descripción', 'Monto', 'Fecha'];
+            
+            const rows = data.map(item => [
+                item.id,
+                item.type,
+                `"${item.name.replace(/"/g, '""')}"`, // Escapar comillas dobles
+                item.amount.toFixed(2),
+                new Date(item.timestamp).toLocaleDateString('es-PE')
+            ].join(','));
+            
+            const csvContent = headers.join(',') + '\n' + rows.join('\n');
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement("a");
+            
+            if (link.download !== undefined) {
+                const url = URL.createObjectURL(blob);
+                link.setAttribute("href", url);
+                link.setAttribute("download", filename);
+                link.style.visibility = 'hidden';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                showMessage('Datos exportados exitosamente.', 'success');
+            } else {
+                showMessage('Tu navegador no soporta la descarga automática de CSV.', 'error');
+            }
+        }
+
+
+        // --- FUNCIONES CRUD Y MANEJO DE ESTADO ---
+
+        /** Elimina una transacción de Firestore. */
         window.deleteTransaction = async function(id, type) {
+            if (!isAuthReady) return showMessage("Autenticación no lista. Intenta de nuevo.", 'warning');
             const collectionName = type === 'income' ? 'incomes' : 'expenses';
             
             try {
-                // La referencia en Firestore es: /users/{userId}/{collectionName}/{docId}
-                await db.collection('users').doc(userId).collection(collectionName).doc(id).delete();
+                // Ruta: /artifacts/{appId}/users/{userId}/incomes/docId
+                const docRef = doc(db, 'artifacts', appId, 'users', userId, collectionName, id);
+                await deleteDoc(docRef);
                 showMessage(`${type === 'income' ? 'Ingreso' : 'Gasto'} eliminado exitosamente.`, 'success');
-                // Alerta: La función 'loadAndFilterData' se encargará de actualizar la vista
+                // onSnapshot se encargará de actualizar la vista
             } catch (error) {
                 console.error("Error al eliminar la transacción:", error);
-                showMessage(`Error al eliminar la transacción: ${error.message}`);
+                showMessage(`Error al eliminar: ${error.message}`);
             }
         };
 
-        // Función para agregar transacciones en Firestore
+        /** Agrega una transacción a Firestore. */
         async function addTransaction(name, amount, type) {
+            if (!isAuthReady) return showMessage("Autenticación no lista. Intenta de nuevo.", 'warning');
+
             if (!name || isNaN(amount) || amount <= 0) {
                 showMessage("Por favor, ingresa un nombre y cantidad válida (mayor a 0)");
                 return;
@@ -349,13 +405,15 @@
             const transactionData = {
                 name: name.trim(),
                 amount: parseFloat(amount),
-                timestamp: firebase.firestore.Timestamp.fromDate(new Date()) // Usamos Timestamp de Firebase
+                timestamp: Timestamp.fromDate(new Date()) // Usamos Timestamp de Firestore
             };
 
             try {
-                // Agregar el documento: /users/{userId}/{collectionName}
-                await db.collection('users').doc(userId).collection(collectionName).add(transactionData);
+                // Ruta: /artifacts/{appId}/users/{userId}/incomes
+                const colRef = collection(db, 'artifacts', appId, 'users', userId, collectionName);
+                await addDoc(colRef, transactionData);
 
+                // Limpiar campos
                 if (type === 'income') {
                     elements.incomeName.value = '';
                     elements.incomeAmount.value = '';
@@ -365,51 +423,14 @@
                 }
                 showMessage(`${type === 'income' ? 'Ingreso' : 'Gasto'} registrado exitosamente.`, 'success');
 
-                // Alerta: La función 'loadAndFilterData' se encargará de actualizar la vista
+                // onSnapshot se encargará de actualizar la vista
             } catch (error) {
                 console.error("Error al añadir la transacción:", error);
-                showMessage(`Error al añadir la transacción: ${error.message}`);
+                showMessage(`Error al añadir: ${error.message}`);
             }
         }
         
-        // Función principal que carga los datos desde Firebase y filtra
-        async function loadAndFilterData() {
-            try {
-                // 1. Mostrar estado de carga
-                elements.incomeList.innerHTML = `<li class="text-center py-4 text-gray-500">Cargando datos de Ingresos...</li>`;
-                elements.expenseList.innerHTML = `<li class="text-center py-4 text-gray-500">Cargando datos de Gastos...</li>`;
-
-                // 2. Cargar Ingresos
-                const incomesSnapshot = await db.collection('users').doc(userId).collection('incomes').get();
-                allIncomes = incomesSnapshot.docs.map(doc => ({ 
-                    id: doc.id, 
-                    ...doc.data(),
-                    // Convertir Timestamp de Firebase a objeto Date
-                    timestamp: doc.data().timestamp ? doc.data().timestamp.toDate().toISOString() : new Date().toISOString()
-                }));
-                
-                // 3. Cargar Gastos
-                const expensesSnapshot = await db.collection('users').doc(userId).collection('expenses').get();
-                allExpenses = expensesSnapshot.docs.map(doc => ({ 
-                    id: doc.id, 
-                    ...doc.data(),
-                    // Convertir Timestamp de Firebase a objeto Date
-                    timestamp: doc.data().timestamp ? doc.data().timestamp.toDate().toISOString() : new Date().toISOString()
-                }));
-                
-                // 4. Filtrar y Renderizar
-                filterAndRenderData();
-
-            } catch (error) {
-                console.error("Error al cargar datos desde Firebase:", error);
-                showMessage(`Error al cargar los datos: ${error.message}`, 'error');
-                elements.incomeList.innerHTML = `<li class="text-center py-8 text-red-400">Error al conectar con la base de datos.</li>`;
-                elements.expenseList.innerHTML = `<li class="text-center py-8 text-red-400">Error al conectar con la base de datos.</li>`;
-            }
-        }
-
-        // --- LÓGICA DE FILTRADO Y RENDERIZADO (Anteriormente handleDataChange) ---
-
+        /** Renderiza la lista de transacciones y actualiza las estadísticas. */
         function filterAndRenderData() {
             const selectedValue = elements.monthFilter.value;
             let totalIncome = 0;
@@ -417,47 +438,47 @@
 
             currentIncomes = [];
             currentExpenses = [];
+            
+            const incomeFilter = income => {
+                if (selectedValue === 'all') return true;
+                const date = new Date(income.timestamp);
+                const month = date.getMonth() + 1;
+                const year = date.getFullYear();
+                return `${String(month).padStart(2, '0')}-${year}` === selectedValue;
+            };
 
+            const expenseFilter = expense => {
+                if (selectedValue === 'all') return true;
+                const date = new Date(expense.timestamp);
+                const month = date.getMonth() + 1;
+                const year = date.getFullYear();
+                return `${String(month).padStart(2, '0')}-${year}` === selectedValue;
+            };
+            
             // --- PROCESAR INGRESOS ---
             elements.incomeList.innerHTML = '';
-            const filteredIncomes = selectedValue === 'all' ? allIncomes : 
-                allIncomes.filter(income => {
-                    const date = new Date(income.timestamp);
-                    const month = date.getMonth() + 1;
-                    const year = date.getFullYear();
-                    return `${String(month).padStart(2, '0')}-${year}` === selectedValue;
-                });
-                
-            filteredIncomes.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-
+            const filteredIncomes = allIncomes.filter(incomeFilter).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+            
             if (filteredIncomes.length === 0) {
-                elements.incomeList.innerHTML = `
-                    <li class="text-center py-8 text-gray-400">
-                        <div class="text-4xl mb-2">💰</div>
-                        <p class="text-sm">No hay ingresos registrados para este periodo</p>
-                    </li>
-                `;
+                elements.incomeList.innerHTML = `<li class="text-center py-8 text-gray-400"><div class="text-4xl mb-2">💰</div><p class="text-sm">No hay ingresos registrados para este periodo</p></li>`;
             } else {
                 filteredIncomes.forEach(income => {
                     totalIncome += income.amount;
-                    currentIncomes.push(income);
+                    currentIncomes.push({...income, type: 'income'});
                     
-                    const li = document.createElement('li');
-                    li.className = 'flex justify-between items-center p-4 bg-green-50 border border-green-200 rounded-lg mb-3 transition-all duration-200 hover:scale-[1.02]';
-                    
-                    // Asegurar que el ID se pasa correctamente a deleteTransaction
+                    const dateStr = new Date(income.timestamp).toLocaleDateString('es-PE');
                     const safeId = income.id;
                     
-                    li.innerHTML = `
-                        <div class="flex-1">
-                            <div class="flex items-center justify-between">
-                                <span class="font-semibold text-gray-800">${income.name}</span>
-                                <span class="text-lg font-bold text-green-600">
+                    elements.incomeList.innerHTML += `
+                        <li class="flex justify-between items-center p-4 bg-green-50 border border-green-200 rounded-lg transition-all duration-200 hover:shadow-md">
+                            <div class="flex-1 min-w-0 pr-2">
+                                <span class="font-semibold text-gray-800 truncate block">${income.name}</span>
+                                <span class="text-xs text-gray-500">${dateStr}</span>
+                            </div>
+                            <div class="flex items-center space-x-3">
+                                <span class="text-lg font-bold text-green-600 shrink-0">
                                     ${formatCurrency(income.amount)}
                                 </span>
-                            </div>
-                            <div class="flex items-center justify-between mt-2">
-                                <span class="text-xs text-gray-500">${new Date(income.timestamp).toLocaleDateString('es-PE')}</span>
                                 <button onclick="deleteTransaction('${safeId.replace(/'/g, "\\'")}', 'income')" 
                                         class="delete-btn text-gray-400 hover:text-red-500 transition-colors duration-200 p-1 rounded"
                                         title="Eliminar">
@@ -466,52 +487,35 @@
                                     </svg>
                                 </button>
                             </div>
-                        </div>
+                        </li>
                     `;
-                    elements.incomeList.appendChild(li);
                 });
             }
 
             // --- PROCESAR GASTOS ---
             elements.expenseList.innerHTML = '';
-            const filteredExpenses = selectedValue === 'all' ? allExpenses : 
-                allExpenses.filter(expense => {
-                    const date = new Date(expense.timestamp);
-                    const month = date.getMonth() + 1;
-                    const year = date.getFullYear();
-                    return `${String(month).padStart(2, '0')}-${year}` === selectedValue;
-                });
-                
-            filteredExpenses.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-
+            const filteredExpenses = allExpenses.filter(expenseFilter).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+            
             if (filteredExpenses.length === 0) {
-                elements.expenseList.innerHTML = `
-                    <li class="text-center py-8 text-gray-400">
-                        <div class="text-4xl mb-2">💸</div>
-                        <p class="text-sm">No hay gastos registrados para este periodo</p>
-                    </li>
-                `;
+                elements.expenseList.innerHTML = `<li class="text-center py-8 text-gray-400"><div class="text-4xl mb-2">💸</div><p class="text-sm">No hay gastos registrados para este periodo</p></li>`;
             } else {
                 filteredExpenses.forEach(expense => {
                     totalExpenses += expense.amount;
-                    currentExpenses.push(expense);
-                    
-                    const li = document.createElement('li');
-                    li.className = 'flex justify-between items-center p-4 bg-red-50 border border-red-200 rounded-lg mb-3 transition-all duration-200 hover:scale-[1.02]';
-                    
-                    // Asegurar que el ID se pasa correctamente a deleteTransaction
+                    currentExpenses.push({...expense, type: 'expense'});
+
+                    const dateStr = new Date(expense.timestamp).toLocaleDateString('es-PE');
                     const safeId = expense.id;
-                    
-                    li.innerHTML = `
-                        <div class="flex-1">
-                            <div class="flex items-center justify-between">
-                                <span class="font-semibold text-gray-800">${expense.name}</span>
-                                <span class="text-lg font-bold text-red-600">
+
+                    elements.expenseList.innerHTML += `
+                        <li class="flex justify-between items-center p-4 bg-red-50 border border-red-200 rounded-lg transition-all duration-200 hover:shadow-md">
+                            <div class="flex-1 min-w-0 pr-2">
+                                <span class="font-semibold text-gray-800 truncate block">${expense.name}</span>
+                                <span class="text-xs text-gray-500">${dateStr}</span>
+                            </div>
+                            <div class="flex items-center space-x-3">
+                                <span class="text-lg font-bold text-red-600 shrink-0">
                                     ${formatCurrency(expense.amount)}
                                 </span>
-                            </div>
-                            <div class="flex items-center justify-between mt-2">
-                                <span class="text-xs text-gray-500">${new Date(expense.timestamp).toLocaleDateString('es-PE')}</span>
                                 <button onclick="deleteTransaction('${safeId.replace(/'/g, "\\'")}', 'expense')" 
                                         class="delete-btn text-gray-400 hover:text-red-500 transition-colors duration-200 p-1 rounded"
                                         title="Eliminar">
@@ -520,9 +524,8 @@
                                     </svg>
                                 </button>
                             </div>
-                        </div>
+                        </li>
                     `;
-                    elements.expenseList.appendChild(li);
                 });
             }
 
@@ -547,40 +550,77 @@
             }
         }
 
-        // Poblar filtro de meses (Misma que antes)
-        function populateMonthFilter() {
-            const today = new Date();
-            const currentMonth = today.getMonth();
-            const currentYear = today.getFullYear();
+        /** Carga y actualiza los meses en el filtro. */
+        function populateMonthFilter(transactions) {
+            const months = new Set();
+            transactions.forEach(t => {
+                const date = new Date(t.timestamp);
+                const month = date.getMonth() + 1;
+                const year = date.getFullYear();
+                months.add(`${String(month).padStart(2, '0')}-${year}`);
+            });
+            
+            const sortedMonths = Array.from(months).sort((a, b) => {
+                const [m1, y1] = a.split('-').map(Number);
+                const [m2, y2] = b.split('-').map(Number);
+                return (y2 * 12 + m2) - (y1 * 12 + m1); // Orden descendente por fecha
+            });
+
             const monthNames = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", 
-                              "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+                                "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
 
             let optionsHTML = `<option value="all">📅 Todos los meses</option>`;
+            const today = new Date();
+            const currentMonthValue = `${String(today.getMonth() + 1).padStart(2, '0')}-${today.getFullYear()}`;
+            let hasCurrentMonth = false;
 
-            // Muestra los últimos 12 meses
-            for (let i = 0; i < 12; i++) {
-                let date = new Date(currentYear, currentMonth - i, 1);
-                const month = date.getMonth();
-                const year = date.getFullYear();
-                const value = `${String(month + 1).padStart(2, '0')}-${year}`;
-                const label = `${monthNames[month]} ${year}`;
-                const emoji = i === 0 ? '🎯' : i < 3 ? '📊' : '📅';
+            sortedMonths.forEach(value => {
+                const [monthNum, year] = value.split('-').map(Number);
+                const label = `${monthNames[monthNum - 1]} ${year}`;
+                const emoji = value === currentMonthValue ? '🎯' : '📊';
                 
-                optionsHTML += `<option value="${value}" ${i === 0 ? 'selected' : ''}>${emoji} ${label}</option>`;
+                if (value === currentMonthValue) hasCurrentMonth = true;
+
+                optionsHTML += `<option value="${value}" ${value === elements.monthFilter.value ? 'selected' : ''}>${emoji} ${label}</option>`;
+            });
+
+            // Si el mes actual no está en los datos, lo añadimos si no hay una selección previa
+            if (!hasCurrentMonth && !sortedMonths.includes(currentMonthValue)) {
+                 const currentMonthLabel = `${monthNames[today.getMonth()]} ${today.getFullYear()}`;
+                 optionsHTML = `<option value="${currentMonthValue}" selected>🎯 ${currentMonthLabel}</option>` + optionsHTML;
+                 elements.monthFilter.value = currentMonthValue; // Establecer el valor por defecto si no hay selección previa
+            } else if (!elements.monthFilter.value) {
+                 elements.monthFilter.value = currentMonthValue;
             }
-                
+
             elements.monthFilter.innerHTML = optionsHTML;
+            
         }
 
-        // Función para manejar el cambio en el filtro y disparar la re-renderización
-        function handleFilterChange() {
-            filterAndRenderData();
+        // --- LÓGICA DE LA IA DE GEMINI (CON EXPONENTIAL BACKOFF) ---
+        
+        async function fetchWithRetry(url, options, maxRetries = 5) {
+            for (let i = 0; i < maxRetries; i++) {
+                try {
+                    const response = await fetch(url, options);
+                    if (response.status === 429 || response.status >= 500) {
+                        throw new Error('Server error or rate limit exceeded');
+                    }
+                    if (!response.ok) {
+                        const errorBody = await response.json();
+                        throw new Error(`API Error: ${response.status} - ${errorBody.error?.message || response.statusText}`);
+                    }
+                    return response;
+                } catch (error) {
+                    console.error(`Fetch attempt ${i + 1} failed: ${error.message}`);
+                    if (i === maxRetries - 1) throw error; // Re-throw on last attempt
+                    const delay = Math.pow(2, i) * 1000 + Math.random() * 1000;
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                }
+            }
         }
 
-
-        // --- Funciones Adicionales (Mismas que antes) ---
-
-        function analyzeFinancesWithGemini() {
+        async function analyzeFinancesWithGemini() {
             elements.analyzeButton.disabled = true;
             elements.analyzeButton.innerHTML = '🔄 Analizando...';
             elements.analysisResult.innerHTML = `
@@ -589,159 +629,187 @@
                     <p class="text-gray-500">Generando análisis con IA...</p>
                 </div>
             `;
+            
+            const transactions = [...currentIncomes, ...currentExpenses].sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
 
-            // Simulación de respuesta de IA (2 segundos)
-            setTimeout(() => {
-                const totalIncomeText = elements.totalIncome.textContent.replace('S/', '').replace(/,/g, '').trim();
-                const totalExpenseText = elements.totalExpense.textContent.replace('S/', '').replace(/,/g, '').trim();
-
-                const totalIncome = parseFloat(totalIncomeText) || 0;
-                const totalExpense = parseFloat(totalExpenseText) || 0;
-                const balance = totalIncome - totalExpense;
-
-                let analysis = '';
-                if (totalIncome === 0 && totalExpense === 0) {
-                    analysis = `
-                        <div class="bg-gray-50 border border-gray-200 rounded-lg p-6">
-                            <h4 class="font-semibold text-gray-800 mb-3">🧐 Sin datos para analizar</h4>
-                            <p class="text-gray-700 text-sm">
-                                Por favor, registra algunos ingresos y gastos para que la IA pueda generar un análisis.
-                            </p>
-                        </div>
-                    `;
-                } else if (balance > 0) {
-                    const percent = totalIncome > 0 ? ((balance / totalIncome) * 100).toFixed(1) : '0.0';
-                    analysis = `
-                        <div class="bg-green-50 border border-green-200 rounded-lg p-6">
-                            <h4 class="font-semibold text-green-800 mb-3">🎉 ¡Excelente gestión financiera!</h4>
-                            <p class="text-green-700 text-sm mb-3">
-                                Tienes un superávit de <strong>${formatCurrency(balance)}</strong> este mes. 
-                                Esto representa un <strong>${percent}%</strong> de ahorro sobre tus ingresos.
-                            </p>
-                            <p class="text-green-700 text-sm">
-                                💡 <strong>Consejo:</strong> Considera invertir una parte de este excedente 
-                                para hacer crecer tu patrimonio.
-                            </p>
-                        </div>
-                    `;
-                } else if (balance < 0) {
-                    const percent = totalIncome > 0 ? ((Math.abs(balance) / totalIncome) * 100).toFixed(1) : '100.0';
-                    analysis = `
-                        <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-6">
-                            <h4 class="font-semibold text-yellow-800 mb-3">⚠️ Atención necesaria</h4>
-                            <p class="text-yellow-700 text-sm mb-3">
-                                Tienes un déficit de <strong>${formatCurrency(Math.abs(balance))}</strong> este mes. 
-                                Tus gastos superan tus ingresos en un <strong>${percent}%</strong>.
-                            </p>
-                            <p class="text-yellow-700 text-sm">
-                                💡 <strong>Consejo:</strong> Revisa tus gastos recurrentes y considera 
-                                reducir gastos no esenciales para equilibrar tu presupuesto.
-                            </p>
-                        </div>
-                    `;
-                } else {
-                    analysis = `
-                        <div class="bg-blue-50 border border-blue-200 rounded-lg p-6">
-                            <h4 class="font-semibold text-blue-800 mb-3">⚖️ Balance equilibrado</h4>
-                            <p class="text-blue-700 text-sm mb-3">
-                                Tus ingresos y gastos están perfectamente equilibrados este mes. 
-                                No tienes superávit ni déficit.
-                            </p>
-                            <p class="text-blue-700 text-sm">
-                                💡 <strong>Consejo:</strong> Intenta generar un pequeño superávit 
-                                cada mes para crear un fondo de emergencia.
-                            </p>
-                        </div>
-                    `;
-                }
-
-                elements.analysisResult.innerHTML = analysis;
+            if (transactions.length === 0) {
                 elements.analyzeButton.disabled = false;
                 elements.analyzeButton.innerHTML = '🤖 Generar Análisis con IA';
-            }, 2000);
-        }
-
-        function exportDataToCSV() {
-            // 1. Verificar si hay datos filtrados para exportar
-            if (currentIncomes.length === 0 && currentExpenses.length === 0) {
-                showMessage('No hay datos para exportar en el periodo seleccionado.', 'warning');
+                elements.analysisResult.innerHTML = `
+                    <div class="bg-gray-50 border border-gray-200 rounded-xl p-4">
+                        <h4 class="font-semibold text-gray-800 mb-2">🧐 Sin datos para analizar</h4>
+                        <p class="text-gray-700 text-sm">
+                            Por favor, registra algunos ingresos y gastos para que la IA pueda generar un análisis para el periodo seleccionado.
+                        </p>
+                    </div>
+                `;
                 return;
             }
 
-            // 2. Preparar los datos
-            const allCurrentTransactions = [
-                ...currentIncomes.map(t => ({...t, type: 'Ingreso'})),
-                ...currentExpenses.map(t => ({...t, type: 'Gasto'}))
-            ];
+            const totalIncome = currentIncomes.reduce((sum, item) => sum + item.amount, 0);
+            const totalExpense = currentExpenses.reduce((sum, item) => sum + item.amount, 0);
+            const balance = totalIncome - totalExpense;
 
-            // Ordenar por fecha (más reciente primero)
-            allCurrentTransactions.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+            // Construir la tabla de datos para la IA
+            const dataTable = transactions.map(t => {
+                const sign = t.type === 'income' ? '+' : '-';
+                const date = new Date(t.timestamp).toLocaleDateString('es-PE');
+                return `${date} | ${t.type.toUpperCase()} | ${t.name} | ${sign}S/${t.amount.toFixed(2)}`;
+            }).join('\n');
 
-            // 3. Crear el contenido CSV
-            const headers = ["ID", "Tipo", "Nombre", "Monto", "Fecha"];
-            let csvContent = headers.join(";") + "\n"; // Usamos punto y coma (;)
 
-            allCurrentTransactions.forEach(item => {
-                const amount = item.amount.toFixed(2); 
-                const dateString = new Date(item.timestamp).toLocaleDateString('es-PE');
+            const systemPrompt = "Eres un analista financiero personal amigable y experto. Tu tarea es analizar las transacciones proporcionadas en Soles Peruanos (S/) y el balance neto. Debes ser positivo pero objetivo. Proporciona una respuesta concisa de máximo 4 frases, usando emojis para resaltar los puntos clave:\n1. Resumen de la salud financiera y el balance (positivo, negativo, neutro).\n2. Identifica el ingreso y/o gasto más significativo.\n3. Ofrece una recomendación accionable para mejorar la situación financiera.";
+            
+            const userQuery = `Analiza el siguiente conjunto de transacciones. El Balance Neto es ${formatCurrency(balance)}. El total de Ingresos es ${formatCurrency(totalIncome)} y el total de Gastos es ${formatCurrency(totalExpense)}. Aquí está el detalle de las transacciones:\n\n${dataTable}`;
+
+            const apiKey = ""; 
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+
+            const payload = {
+                contents: [{ parts: [{ text: userQuery }] }],
+                systemInstruction: { parts: [{ text: systemPrompt }] },
+            };
+
+            try {
+                const response = await fetchWithRetry(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
                 
-                const row = [
-                    `"${item.id}"`,
-                    item.type,
-                    `"${item.name.replace(/"/g, '""')}"`,
-                    amount,
-                    dateString
-                ];
-                csvContent += row.join(";") + "\n";
+                const result = await response.json();
+                const text = result.candidates?.[0]?.content?.parts?.[0]?.text;
+
+                if (text) {
+                    elements.analysisResult.innerHTML = `<div class="p-2 text-gray-800 whitespace-pre-wrap">${text}</div>`;
+                } else {
+                    elements.analysisResult.innerHTML = `<p class="text-red-500 py-4 text-center">Error: La IA no pudo generar un análisis.</p>`;
+                }
+            } catch (error) {
+                console.error("Error al llamar a Gemini API:", error);
+                elements.analysisResult.innerHTML = `<p class="text-red-500 py-4 text-center">🚫 Error de conexión con el servicio de IA. Intenta de nuevo.</p>`;
+            } finally {
+                elements.analyzeButton.disabled = false;
+                elements.analyzeButton.innerHTML = '🤖 Generar Análisis con IA';
+            }
+        }
+        
+        // --- INICIALIZACIÓN Y LISTENERS PRINCIPALES ---
+
+        /** Establece los escuchadores de Firestore. */
+        function setupFirestoreListeners() {
+            if (!isAuthReady || !userId) {
+                console.warn("setupFirestoreListeners llamada antes de que la autenticación esté lista.");
+                return;
+            }
+
+            // 1. Listener para Ingresos
+            const incomeColRef = collection(db, 'artifacts', appId, 'users', userId, 'incomes');
+            onSnapshot(incomeColRef, (snapshot) => {
+                allIncomes = snapshot.docs.map(doc => ({
+                    id: doc.id,
+                    ...doc.data(),
+                    // Asegurar que el timestamp sea un formato utilizable por Date
+                    timestamp: doc.data().timestamp ? doc.data().timestamp.toDate().toISOString() : new Date().toISOString()
+                }));
+                const allTransactions = [...allIncomes, ...allExpenses];
+                populateMonthFilter(allTransactions); // Actualiza el filtro de meses
+                filterAndRenderData(); // Re-renderiza con el filtro actual
+            }, (error) => {
+                // Este error se registra, pero no debería bloquear la app una vez que la conexión se restablece.
+                console.error("Error al escuchar ingresos (transitorio):", error);
+                showMessage("Error al cargar ingresos en tiempo real. Revisa tus permisos de Firestore.", 'error');
             });
 
-            // 4. Crear y descargar el archivo
-            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-            const url = URL.createObjectURL(blob);
+            // 2. Listener para Gastos
+            const expenseColRef = collection(db, 'artifacts', appId, 'users', userId, 'expenses');
+            onSnapshot(expenseColRef, (snapshot) => {
+                allExpenses = snapshot.docs.map(doc => ({
+                    id: doc.id,
+                    ...doc.data(),
+                    // Asegurar que el timestamp sea un formato utilizable por Date
+                    timestamp: doc.data().timestamp ? doc.data().timestamp.toDate().toISOString() : new Date().toISOString()
+                }));
+                const allTransactions = [...allIncomes, ...allExpenses];
+                populateMonthFilter(allTransactions); // Actualiza el filtro de meses
+                filterAndRenderData(); // Re-renderiza con el filtro actual
+            }, (error) => {
+                // Este error se registra, pero no debería bloquear la app una vez que la conexión se restablece.
+                console.error("Error al escuchar gastos (transitorio):", error);
+                showMessage("Error al cargar gastos en tiempo real. Revisa tus permisos de Firestore.", 'error');
+            });
             
-            const a = document.createElement('a');
-            a.href = url;
-            
-            const filterValue = elements.monthFilter.value;
-            const fileName = `finanzas-export-${filterValue}.csv`;
-            
-            a.setAttribute('download', fileName);
-            
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            
-            showMessage(`Datos exportados exitosamente como ${fileName}`, 'success');
+            // Mostrar ID de usuario una vez que esté disponible
+            elements.authStatusDisplay.textContent = '☁️ Conectado (Tiempo Real)';
         }
 
-
-        // --- Inicialización de la Aplicación (Usando Firebase Listeners) ---
-
-        function initApp() {
-            // 1. Llenar el filtro de meses
-            populateMonthFilter();
-
-            // 2. Asignación de Eventos
-            elements.monthFilter.addEventListener('change', handleFilterChange);
-            elements.addIncomeBtn.addEventListener('click', () => {
-                addTransaction(elements.incomeName.value, elements.incomeAmount.value, 'income');
-            });
-            elements.addExpenseBtn.addEventListener('click', () => {
-                addTransaction(elements.expenseName.value, elements.expenseAmount.value, 'expense');
-            });
-            elements.analyzeButton.addEventListener('click', analyzeFinancesWithGemini);
-            elements.exportBtn.addEventListener('click', exportDataToCSV);
-
-            // 3. Establecer Listeners de Firebase para la actualización en tiempo real
-            db.collection('users').doc(userId).collection('incomes').onSnapshot(loadAndFilterData);
-            db.collection('users').doc(userId).collection('expenses').onSnapshot(loadAndFilterData);
-
-            // Nota: Con onSnapshot, no necesitamos llamar a loadAndFilterData() aquí. 
-            // La primera carga se dispara automáticamente.
+        /** Inicializa el flujo de autenticación. */
+        async function initializeAuth() {
+            try {
+                if (initialAuthToken) {
+                    await signInWithCustomToken(auth, initialAuthToken);
+                } else {
+                    await signInAnonymously(auth);
+                }
+            } catch (error) {
+                console.error("Error durante la autenticación:", error);
+                showMessage(`Error de Autenticación: ${error.message}`, 'error');
+                elements.authStatusDisplay.textContent = '❌ Error de Conexión';
+            }
         }
 
-        initApp();
+        // Listener de estado de autenticación (Se ejecuta una vez al inicio y en cada cambio)
+        onAuthStateChanged(auth, (user) => {
+            // FIX: Solo inicializar listeners la primera vez que se resuelve el estado de auth.
+            if (!listenersInitialized) {
+                if (user) {
+                    userId = user.uid;
+                    elements.userIdDisplay.textContent = `ID Usuario: ${userId}`;
+                } else {
+                    // Si el token inicial falla o no existe, se usa un ID anónimo para operar.
+                    userId = crypto.randomUUID(); 
+                    elements.authStatusDisplay.textContent = '⚠️ Sesión Anónima';
+                    elements.userIdDisplay.textContent = `ID Anónimo: ${userId}`;
+                }
+                
+                isAuthReady = true; // El ID de usuario (autenticado o anónimo) está listo
+                setupFirestoreListeners(); // Inicia la escucha de datos
+                listenersInitialized = true; // Asegura que no se vuelva a llamar
+            } else if (user) {
+                // Actualizar ID si el usuario cambia (ej. de anónimo a autenticado),
+                // pero los listeners ya están establecidos.
+                userId = user.uid;
+                elements.userIdDisplay.textContent = `ID Usuario: ${userId}`;
+            }
+        });
 
+        // --- MANEJO DE EVENTOS ---
+        
+        elements.addIncomeBtn.addEventListener('click', () => {
+            addTransaction(elements.incomeName.value, elements.incomeAmount.value, 'income');
+        });
+
+        elements.addExpenseBtn.addEventListener('click', () => {
+            addTransaction(elements.expenseName.value, elements.expenseAmount.value, 'expense');
+        });
+
+        elements.monthFilter.addEventListener('change', filterAndRenderData);
+
+        elements.analyzeButton.addEventListener('click', analyzeFinancesWithGemini);
+
+        elements.exportBtn.addEventListener('click', () => {
+            exportToCSV(currentIncomes.concat(currentExpenses).map(t => ({
+                id: t.id,
+                type: t.type,
+                name: t.name,
+                amount: t.amount,
+                timestamp: t.timestamp
+            })), `Finanzas_Export_${elements.monthFilter.value}.csv`);
+        });
+
+        // Iniciar el flujo de autenticación al cargar la página
+        initializeAuth();
+        
     </script>
 </body>
 </html>
