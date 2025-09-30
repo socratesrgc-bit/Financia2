@@ -343,12 +343,12 @@
                 if (type === 'income') {
                     incomeNameInput.value = '';
                     incomeAmountInput.value = '';
-                    window.showMessage("Ingreso registrado con éxito.", 'success');
-                } else {
+                      window.showMessage("Ingreso registrado con éxito.", 'success');
+} else {
                     expenseNameInput.value = '';
                     expenseAmountInput.value = '';
                     window.showMessage("Gasto registrado con éxito.", 'success');
-                }
+}
 
             } catch (e) {
                 console.error(`Error al añadir ${type}: `, e);
@@ -678,5 +678,6 @@
     </div>
 </body>
 </html>
+
 
 
