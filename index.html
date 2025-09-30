@@ -31,7 +31,9 @@
         exportBtn: document.getElementById('export-btn')
     };
 
-
+    // Utilidades
+    window.showMessage = showMessage; // Hacer showMessage global para el botón de cerrar
+    window.deleteTransaction = deleteTransaction; // Hacer deleteTransaction global para los botones de eliminar
     
     function showMessage(message, type = 'error') {
         const icon = type === 'success' ? '✅' : type === 'warning' ? '⚠️' : '❌';
@@ -438,4 +440,5 @@
     window.showMessage = showMessage;
 
 </script>
+
 
