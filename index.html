@@ -47,7 +47,6 @@
 </head>
 <body class="min-h-screen py-8 px-4">
     <div class="max-w-6xl mx-auto">
-        <!-- Header -->
         <div class="glass-card rounded-2xl p-8 mb-8 text-center">
             <h1 class="text-4xl font-bold text-gray-800 mb-2">
                 💰 Control Financiero Personal
@@ -55,7 +54,7 @@
             <p class="text-gray-600 mb-4">Gestiona tus ingresos y gastos en Soles Peruanos</p>
             <div class="flex items-center justify-center space-x-4 text-sm text-gray-500">
                 <span id="user-id-display" class="bg-green-100 text-green-700 px-3 py-1 rounded-full">
-                    ✅ Conectado
+                    ✅ Conectado (Demo Local)
                 </span>
                 <span class="bg-green-100 text-green-700 px-3 py-1 rounded-full">
                     💳 Soles (PEN)
@@ -63,10 +62,8 @@
             </div>
         </div>
 
-        <!-- Message Box -->
         <div id="message-box" class="hidden mb-6"></div>
 
-        <!-- Stats Cards -->
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
             <div class="stat-card bg-white rounded-2xl p-6 shadow-lg border border-green-200">
                 <div class="flex items-center justify-between mb-4">
@@ -96,7 +93,6 @@
             </div>
         </div>
 
-        <!-- Filtro -->
         <div class="glass-card rounded-2xl p-6 mb-8">
             <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div>
@@ -105,14 +101,11 @@
                 </div>
                 <select id="month-filter" 
                         class="bg-white border border-gray-300 rounded-xl px-4 py-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 min-w-[200px]">
-                    <option value="all">Cargando meses...</option>
                 </select>
             </div>
         </div>
 
-        <!-- Formularios -->
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-            <!-- Ingresos -->
             <div class="glass-card rounded-2xl p-6 border border-green-200">
                 <div class="flex items-center mb-6">
                     <div class="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center mr-3">
@@ -142,7 +135,6 @@
                 </div>
             </div>
 
-            <!-- Gastos -->
             <div class="glass-card rounded-2xl p-6 border border-red-200">
                 <div class="flex items-center mb-6">
                     <div class="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center mr-3">
@@ -173,9 +165,7 @@
             </div>
         </div>
 
-        <!-- Herramientas Adicionales -->
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-            <!-- Análisis IA -->
             <div class="glass-card rounded-2xl p-6 border border-indigo-200">
                 <div class="flex items-center mb-6">
                     <div class="w-10 h-10 bg-indigo-100 rounded-lg flex items-center justify-center mr-3">
@@ -199,7 +189,6 @@
                 </div>
             </div>
 
-            <!-- Exportar -->
             <div class="glass-card rounded-2xl p-6 border border-gray-200">
                 <div class="flex items-center mb-6">
                     <div class="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center mr-3">
@@ -223,9 +212,7 @@
             </div>
         </div>
 
-        <!-- Historial -->
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            <!-- Ingresos -->
             <div class="glass-card rounded-2xl p-6 border border-green-200">
                 <div class="flex items-center justify-between mb-6">
                     <h3 class="text-xl font-semibold text-gray-800">📥 Historial de Ingresos</h3>
@@ -241,7 +228,6 @@
                 </ul>
             </div>
 
-            <!-- Gastos -->
             <div class="glass-card rounded-2xl p-6 border border-red-200">
                 <div class="flex items-center justify-between mb-6">
                     <h3 class="text-xl font-semibold text-gray-800">📤 Historial de Gastos</h3>
@@ -260,12 +246,13 @@
     </div>
 
     <script>
-        // --- CONFIGURACIÓN SIMPLIFICADA SIN FIREBASE ---
-           
+        // --- CONFIGURACIÓN DEMO LOCAL ---
+        
         // Variables globales
         let userId = 'usuario-demo-' + Math.random().toString(36).substr(2, 9);
-        let allIncomes = [];
-        let allExpenses = [];
+        // Usamos una clave de almacenamiento local para simular persistencia
+        let allIncomes = JSON.parse(localStorage.getItem('allIncomes_demo')) || [];
+        let allExpenses = JSON.parse(localStorage.getItem('allExpenses_demo')) || [];
         let currentIncomes = [];
         let currentExpenses = [];
 
@@ -298,7 +285,7 @@
             const bgColor = type === 'success' ? 'bg-green-50' : type === 'warning' ? 'bg-yellow-50' : 'bg-red-50';
             const textColor = type === 'success' ? 'text-green-800' : type === 'warning' ? 'text-yellow-800' : 'text-red-800';
             const borderColor = type === 'success' ? 'border-green-200' : type === 'warning' ? 'border-yellow-200' : 'border-red-200';
-               
+            
             elements.messageBox.innerHTML = `
                 <div class="flex items-center justify-between p-4 rounded-lg ${bgColor} ${textColor} border ${borderColor}">
                     <div class="flex items-center">
@@ -323,6 +310,12 @@
                 currency: 'PEN'
             }).format(amount);
         }
+        
+        // Guardar en el almacenamiento local para simular persistencia
+        function saveDataToLocal() {
+            localStorage.setItem('allIncomes_demo', JSON.stringify(allIncomes));
+            localStorage.setItem('allExpenses_demo', JSON.stringify(allExpenses));
+        }
 
         // Función global para eliminar transacciones
         window.deleteTransaction = function(id, type) {
@@ -335,10 +328,11 @@
                 allExpenses = allExpenses.filter(expense => expense.id !== id);
                 showMessage('Gasto eliminado', 'success');
             }
+            saveDataToLocal(); // Guardar el cambio
             handleDataChange();
         };
 
-        // Lógica principal
+        // Lógica principal de renderizado y filtro
         function handleDataChange() {
             const selectedValue = elements.monthFilter.value;
             let totalIncome = 0;
@@ -347,7 +341,7 @@
             currentIncomes = [];
             currentExpenses = [];
 
-            // Procesar ingresos
+            // --- PROCESAR INGRESOS ---
             elements.incomeList.innerHTML = '';
             const filteredIncomes = selectedValue === 'all' ? allIncomes : 
                 allIncomes.filter(income => {
@@ -361,10 +355,10 @@
 
             if (filteredIncomes.length === 0) {
                 elements.incomeList.innerHTML = `
-                    <div class="text-center py-8 text-gray-400">
+                    <li class="text-center py-8 text-gray-400">
                         <div class="text-4xl mb-2">💰</div>
                         <p class="text-sm">No hay ingresos registrados</p>
-                    </div>
+                    </li>
                 `;
             } else {
                 filteredIncomes.forEach(income => {
@@ -374,7 +368,7 @@
                     const li = document.createElement('li');
                     li.className = 'flex justify-between items-center p-4 bg-green-50 border border-green-200 rounded-lg mb-3 transition-all duration-200 hover:scale-[1.02]';
                     
-                    // Usar IDs simples sin caracteres especiales
+                    // Asegurar ID para la función onclick
                     const safeId = income.id.replace(/'/g, "\\'");
                     
                     li.innerHTML = `
@@ -401,7 +395,7 @@
                 });
             }
 
-            // Procesar gastos
+            // --- PROCESAR GASTOS ---
             elements.expenseList.innerHTML = '';
             const filteredExpenses = selectedValue === 'all' ? allExpenses : 
                 allExpenses.filter(expense => {
@@ -415,10 +409,10 @@
 
             if (filteredExpenses.length === 0) {
                 elements.expenseList.innerHTML = `
-                    <div class="text-center py-8 text-gray-400">
+                    <li class="text-center py-8 text-gray-400">
                         <div class="text-4xl mb-2">💸</div>
                         <p class="text-sm">No hay gastos registrados</p>
-                    </div>
+                    </li>
                 `;
             } else {
                 filteredExpenses.forEach(expense => {
@@ -428,7 +422,7 @@
                     const li = document.createElement('li');
                     li.className = 'flex justify-between items-center p-4 bg-red-50 border border-red-200 rounded-lg mb-3 transition-all duration-200 hover:scale-[1.02]';
                     
-                    // Usar IDs simples sin caracteres especiales
+                    // Asegurar ID para la función onclick
                     const safeId = expense.id.replace(/'/g, "\\'");
                     
                     li.innerHTML = `
@@ -458,17 +452,18 @@
             // Actualizar estadísticas
             elements.totalIncome.textContent = formatCurrency(totalIncome);
             elements.totalExpense.textContent = formatCurrency(totalExpenses);
-            elements.netBalance.textContent = formatCurrency(totalIncome - totalExpenses);
+            
+            const netBalance = totalIncome - totalExpenses;
+            elements.netBalance.textContent = formatCurrency(netBalance);
 
             // Actualizar contadores
             elements.incomeCount.textContent = `${filteredIncomes.length} registros`;
             elements.expenseCount.textContent = `${filteredExpenses.length} registros`;
 
             // Actualizar estilo del balance neto
-            const balance = totalIncome - totalExpenses;
-            if (balance > 0) {
+            if (netBalance > 0) {
                 elements.netBalance.className = 'text-3xl font-bold text-green-600';
-            } else if (balance < 0) {
+            } else if (netBalance < 0) {
                 elements.netBalance.className = 'text-3xl font-bold text-red-600';
             } else {
                 elements.netBalance.className = 'text-3xl font-bold text-gray-600';
@@ -485,6 +480,7 @@
 
             let optionsHTML = `<option value="all">📅 Todos los meses</option>`;
 
+            // Muestra los últimos 12 meses
             for (let i = 0; i < 12; i++) {
                 let date = new Date(currentYear, currentMonth - i, 1);
                 const month = date.getMonth();
@@ -495,7 +491,7 @@
                 
                 optionsHTML += `<option value="${value}" ${i === 0 ? 'selected' : ''}>${emoji} ${label}</option>`;
             }
-               
+                
             elements.monthFilter.innerHTML = optionsHTML;
         }
 
@@ -506,7 +502,6 @@
                 return;
             }
 
-            // ID simple sin caracteres especiales
             const transaction = {
                 id: 'id_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
                 name: name.trim(),
@@ -526,10 +521,12 @@
                 showMessage('Gasto registrado exitosamente', 'success');
             }
 
+            saveDataToLocal(); // Guardar el cambio
             handleDataChange();
         }
 
-        // Funciones adicionales
+        // --- Funciones Adicionales ---
+
         function analyzeFinancesWithGemini() {
             elements.analyzeButton.disabled = true;
             elements.analyzeButton.innerHTML = '🔄 Analizando...';
@@ -540,9 +537,10 @@
                 </div>
             `;
 
+            // Simulación de respuesta de IA (2 segundos)
             setTimeout(() => {
-                const totalIncomeText = elements.totalIncome.textContent.replace('S/', '').replace(',', '').trim();
-                const totalExpenseText = elements.totalExpense.textContent.replace('S/', '').replace(',', '').trim();
+                const totalIncomeText = elements.totalIncome.textContent.replace('S/', '').replace(/,/g, '').trim();
+                const totalExpenseText = elements.totalExpense.textContent.replace('S/', '').replace(/,/g, '').trim();
 
                 const totalIncome = parseFloat(totalIncomeText) || 0;
                 const totalExpense = parseFloat(totalExpenseText) || 0;
@@ -611,90 +609,76 @@
         }
 
         function exportDataToCSV() {
+            // 1. Verificar si hay datos filtrados para exportar
             if (currentIncomes.length === 0 && currentExpenses.length === 0) {
-                showMessage('No hay datos para exportar en el periodo actual', 'warning');
+                showMessage('No hay datos para exportar en el periodo seleccionado.', 'warning');
                 return;
             }
 
-            const allTransactions = [
-                ...currentIncomes.map(t => ({ ...t, type: 'INGRESO' })),
-                ...currentExpenses.map(t => ({ ...t, type: 'GASTO' }))
-            ].sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+            // 2. Preparar los datos
+            const allCurrentTransactions = [
+                ...currentIncomes.map(t => ({...t, type: 'Ingreso'})),
+                ...currentExpenses.map(t => ({...t, type: 'Gasto'}))
+            ];
 
-            const headers = ['Fecha', 'Tipo', 'Descripcion', 'Monto (S/)'];
-            let csvContent = headers.join(',') + '\n';
+            // Ordenar por fecha (más reciente primero)
+            allCurrentTransactions.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
 
-            allTransactions.forEach(transaction => {
+            // 3. Crear el contenido CSV
+            const headers = ["ID", "Tipo", "Nombre", "Monto", "Fecha"];
+            let csvContent = headers.join(";") + "\n"; // Usamos punto y coma (;)
+
+            allCurrentTransactions.forEach(item => {
+                const amount = item.amount.toFixed(2); 
+                const dateString = new Date(item.timestamp).toLocaleDateString('es-PE');
+                
                 const row = [
-                    new Date(transaction.timestamp).toLocaleDateString('es-PE'),
-                    transaction.type,
-                    `"${transaction.name.replace(/"/g, '""')}"`, 
-                    transaction.amount.toFixed(2)
+                    `"${item.id}"`,
+                    item.type,
+                    `"${item.name.replace(/"/g, '""')}"`,
+                    amount,
+                    dateString
                 ];
-                csvContent += row.join(',') + '\n';
+                csvContent += row.join(";") + "\n";
             });
 
-            const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' });
+            // 4. Crear y descargar el archivo
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
             const url = URL.createObjectURL(blob);
+            
             const a = document.createElement('a');
             a.href = url;
-            const selectedMonth = elements.monthFilter.options[elements.monthFilter.selectedIndex].text.replace('🎯', '').replace('📊', '').replace('📅', '').trim();
-            a.download = `Reporte_Finanzas_${selectedMonth.replace(/ /g, '_')}.csv`;
+            
+            const filterValue = elements.monthFilter.value;
+            const fileName = `finanzas-export-${filterValue}.csv`;
+            
+            a.setAttribute('download', fileName);
+            
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-            showMessage('Datos exportados a CSV exitosamente', 'success');
-        }
-         
-        // --- SIMULACIÓN DE DATOS Y EVENTOS ---
-         
-        function loadInitialData() {
-            elements.userIdDisplay.textContent = `👤 ${userId}`;
-
-            const today = new Date();
             
-            // Datos de muestra con IDs simples
-            const sampleIncomes = [
-                { id: 'ingreso1', name: 'Salario Principal', amount: 4500.00, timestamp: new Date(today.getFullYear(), today.getMonth(), 15).toISOString() },
-                { id: 'ingreso2', name: 'Venta de Servicios', amount: 850.50, timestamp: new Date(today.getFullYear(), today.getMonth(), 20).toISOString() }
-            ];
-
-            const sampleExpenses = [
-                { id: 'gasto1', name: 'Alquiler', amount: 1500.00, timestamp: new Date(today.getFullYear(), today.getMonth(), 1).toISOString() },
-                { id: 'gasto2', name: 'Supermercado', amount: 450.70, timestamp: new Date(today.getFullYear(), today.getMonth(), 5).toISOString() },
-                { id: 'gasto3', name: 'Servicio de Internet', amount: 100.00, timestamp: new Date(today.getFullYear(), today.getMonth(), 10).toISOString() },
-                { id: 'gasto4', name: 'Transporte', amount: 120.00, timestamp: new Date(today.getFullYear(), today.getMonth(), 18).toISOString() }
-            ];
-            
-            allIncomes.push(...sampleIncomes);
-            allExpenses.push(...sampleExpenses);
-            
-            populateMonthFilter();
-            handleDataChange();
+            showMessage(`Datos exportados exitosamente como ${fileName}`, 'success');
         }
 
-        function setupEventListeners() {
-            elements.addIncomeBtn.addEventListener('click', () => {
-                addTransaction(elements.incomeName.value, elements.incomeAmount.value, 'income');
-            });
-            
-            elements.addExpenseBtn.addEventListener('click', () => {
-                addTransaction(elements.expenseName.value, elements.expenseAmount.value, 'expense');
-            });
+        // --- Inicialización de la Aplicación ---
 
-            elements.monthFilter.addEventListener('change', handleDataChange);
-            elements.analyzeButton.addEventListener('click', analyzeFinancesWithGemini);
-            elements.exportBtn.addEventListener('click', exportDataToCSV);
-        }
+        // 1. Llenar el filtro de meses
+        populateMonthFilter();
 
-        // Inicialización de la aplicación
-        document.addEventListener('DOMContentLoaded', () => {
-            loadInitialData();
-            setupEventListeners();
-            window.showMessage = showMessage;
+        // 2. Asignación de Eventos
+        elements.monthFilter.addEventListener('change', handleDataChange);
+        elements.addIncomeBtn.addEventListener('click', () => {
+            addTransaction(elements.incomeName.value, elements.incomeAmount.value, 'income');
         });
+        elements.addExpenseBtn.addEventListener('click', () => {
+            addTransaction(elements.expenseName.value, elements.expenseAmount.value, 'expense');
+        });
+        elements.analyzeButton.addEventListener('click', analyzeFinancesWithGemini);
+        elements.exportBtn.addEventListener('click', exportDataToCSV);
 
+        // 3. Cargar la vista inicial (mostrar los datos del mes actual)
+        handleDataChange(); 
     </script>
 </body>
 </html>
