@@ -4,6 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Control de Ingresos y Gastos</title>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+    
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -53,8 +56,8 @@
             </h1>
             <p class="text-gray-600 mb-4">Gestiona tus ingresos y gastos en Soles Peruanos</p>
             <div class="flex items-center justify-center space-x-4 text-sm text-gray-500">
-                <span id="user-id-display" class="bg-green-100 text-green-700 px-3 py-1 rounded-full">
-                    ✅ Conectado (Demo Local)
+                <span id="user-id-display" class="bg-indigo-100 text-indigo-700 px-3 py-1 rounded-full">
+                    ☁️ Conectado (Firestore)
                 </span>
                 <span class="bg-green-100 text-green-700 px-3 py-1 rounded-full">
                     💳 Soles (PEN)
@@ -221,11 +224,7 @@
                     </span>
                 </div>
                 <ul id="income-list" class="list-container space-y-3">
-                    <li class="text-center py-8 text-gray-400">
-                        <div class="text-4xl mb-2">💰</div>
-                        <p>No hay ingresos registrados</p>
-                    </li>
-                </ul>
+                    </ul>
             </div>
 
             <div class="glass-card rounded-2xl p-6 border border-red-200">
@@ -236,27 +235,37 @@
                     </span>
                 </div>
                 <ul id="expense-list" class="list-container space-y-3">
-                    <li class="text-center py-8 text-gray-400">
-                        <div class="text-4xl mb-2">💸</div>
-                        <p>No hay gastos registrados</p>
-                    </li>
-                </ul>
+                    </ul>
             </div>
         </div>
     </div>
 
     <script>
-        // --- CONFIGURACIÓN DEMO LOCAL ---
-        
-        // Variables globales
-        let userId = 'usuario-demo-' + Math.random().toString(36).substr(2, 9);
-        // Usamos una clave de almacenamiento local para simular persistencia
-        let allIncomes = JSON.parse(localStorage.getItem('allIncomes_demo')) || [];
-        let allExpenses = JSON.parse(localStorage.getItem('allExpenses_demo')) || [];
-        let currentIncomes = [];
-        let currentExpenses = [];
+        // --- CONFIGURACIÓN FIREBASE (REEMPLAZA ESTOS VALORES) ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyCil5A3PMp9-vUY5qTK_wbvUY5qTK_wbvUY5qTK_wb", // ¡TU CLAVE ESTÁ AQUÍ!
+            authDomain: "TU_AUTH_DOMAIN_AQUI", // Ejem: "app-finanzas-1234.firebaseapp.com"
+            projectId: "TU_PROJECT_ID_AQUI",     // Ejem: "app-finanzas-1234"
+            storageBucket: "TU_STORAGE_BUCKET_AQUI",
+            messagingSenderId: "TU_MESSAGING_SENDER_ID_AQUI",
+            appId: "TU_APP_ID_AQUI"
+        };
 
-        // Referencias de elementos
+        // Inicializar Firebase
+        const app = firebase.initializeApp(firebaseConfig);
+        const db = app.firestore();
+        // Usamos un ID fijo por ahora. En una app real, vendría de firebase.auth().currentUser.uid
+        let userId = 'usuario_principal_peru'; 
+
+        // Variables globales para los datos (se llenarán desde Firestore)
+        let allIncomes = []; 
+        let allExpenses = []; 
+        let currentIncomes = []; // Datos filtrados
+        let currentExpenses = []; // Datos filtrados
+        // --- FIN CONFIGURACIÓN FIREBASE ---
+
+
+        // Referencias de elementos (Misma que antes)
         const elements = {
             incomeName: document.getElementById('income-name'),
             incomeAmount: document.getElementById('income-amount'),
@@ -279,7 +288,7 @@
             exportBtn: document.getElementById('export-btn')
         };
 
-        // Utilidades
+        // Utilidades (Mismas que antes)
         function showMessage(message, type = 'error') {
             const icon = type === 'success' ? '✅' : type === 'warning' ? '⚠️' : '❌';
             const bgColor = type === 'success' ? 'bg-green-50' : type === 'warning' ? 'bg-yellow-50' : 'bg-red-50';
@@ -310,30 +319,98 @@
                 currency: 'PEN'
             }).format(amount);
         }
-        
-        // Guardar en el almacenamiento local para simular persistencia
-        function saveDataToLocal() {
-            localStorage.setItem('allIncomes_demo', JSON.stringify(allIncomes));
-            localStorage.setItem('allExpenses_demo', JSON.stringify(allExpenses));
-        }
 
-        // Función global para eliminar transacciones
-        window.deleteTransaction = function(id, type) {
-            console.log('Eliminando:', id, type); // Para debug
+        // --- FUNCIONES CRUD CON FIREBASE ---
+
+        // Función para eliminar transacciones en Firestore
+        window.deleteTransaction = async function(id, type) {
+            const collectionName = type === 'income' ? 'incomes' : 'expenses';
             
-            if (type === 'income') {
-                allIncomes = allIncomes.filter(income => income.id !== id);
-                showMessage('Ingreso eliminado', 'success');
-            } else {
-                allExpenses = allExpenses.filter(expense => expense.id !== id);
-                showMessage('Gasto eliminado', 'success');
+            try {
+                // La referencia en Firestore es: /users/{userId}/{collectionName}/{docId}
+                await db.collection('users').doc(userId).collection(collectionName).doc(id).delete();
+                showMessage(`${type === 'income' ? 'Ingreso' : 'Gasto'} eliminado exitosamente.`, 'success');
+                // Alerta: La función 'loadAndFilterData' se encargará de actualizar la vista
+            } catch (error) {
+                console.error("Error al eliminar la transacción:", error);
+                showMessage(`Error al eliminar la transacción: ${error.message}`);
             }
-            saveDataToLocal(); // Guardar el cambio
-            handleDataChange();
         };
 
-        // Lógica principal de renderizado y filtro
-        function handleDataChange() {
+        // Función para agregar transacciones en Firestore
+        async function addTransaction(name, amount, type) {
+            if (!name || isNaN(amount) || amount <= 0) {
+                showMessage("Por favor, ingresa un nombre y cantidad válida (mayor a 0)");
+                return;
+            }
+
+            const collectionName = type === 'income' ? 'incomes' : 'expenses';
+            
+            const transactionData = {
+                name: name.trim(),
+                amount: parseFloat(amount),
+                timestamp: firebase.firestore.Timestamp.fromDate(new Date()) // Usamos Timestamp de Firebase
+            };
+
+            try {
+                // Agregar el documento: /users/{userId}/{collectionName}
+                await db.collection('users').doc(userId).collection(collectionName).add(transactionData);
+
+                if (type === 'income') {
+                    elements.incomeName.value = '';
+                    elements.incomeAmount.value = '';
+                } else {
+                    elements.expenseName.value = '';
+                    elements.expenseAmount.value = '';
+                }
+                showMessage(`${type === 'income' ? 'Ingreso' : 'Gasto'} registrado exitosamente.`, 'success');
+
+                // Alerta: La función 'loadAndFilterData' se encargará de actualizar la vista
+            } catch (error) {
+                console.error("Error al añadir la transacción:", error);
+                showMessage(`Error al añadir la transacción: ${error.message}`);
+            }
+        }
+        
+        // Función principal que carga los datos desde Firebase y filtra
+        async function loadAndFilterData() {
+            try {
+                // 1. Mostrar estado de carga
+                elements.incomeList.innerHTML = `<li class="text-center py-4 text-gray-500">Cargando datos de Ingresos...</li>`;
+                elements.expenseList.innerHTML = `<li class="text-center py-4 text-gray-500">Cargando datos de Gastos...</li>`;
+
+                // 2. Cargar Ingresos
+                const incomesSnapshot = await db.collection('users').doc(userId).collection('incomes').get();
+                allIncomes = incomesSnapshot.docs.map(doc => ({ 
+                    id: doc.id, 
+                    ...doc.data(),
+                    // Convertir Timestamp de Firebase a objeto Date
+                    timestamp: doc.data().timestamp ? doc.data().timestamp.toDate().toISOString() : new Date().toISOString()
+                }));
+                
+                // 3. Cargar Gastos
+                const expensesSnapshot = await db.collection('users').doc(userId).collection('expenses').get();
+                allExpenses = expensesSnapshot.docs.map(doc => ({ 
+                    id: doc.id, 
+                    ...doc.data(),
+                    // Convertir Timestamp de Firebase a objeto Date
+                    timestamp: doc.data().timestamp ? doc.data().timestamp.toDate().toISOString() : new Date().toISOString()
+                }));
+                
+                // 4. Filtrar y Renderizar
+                filterAndRenderData();
+
+            } catch (error) {
+                console.error("Error al cargar datos desde Firebase:", error);
+                showMessage(`Error al cargar los datos: ${error.message}`, 'error');
+                elements.incomeList.innerHTML = `<li class="text-center py-8 text-red-400">Error al conectar con la base de datos.</li>`;
+                elements.expenseList.innerHTML = `<li class="text-center py-8 text-red-400">Error al conectar con la base de datos.</li>`;
+            }
+        }
+
+        // --- LÓGICA DE FILTRADO Y RENDERIZADO (Anteriormente handleDataChange) ---
+
+        function filterAndRenderData() {
             const selectedValue = elements.monthFilter.value;
             let totalIncome = 0;
             let totalExpenses = 0;
@@ -357,7 +434,7 @@
                 elements.incomeList.innerHTML = `
                     <li class="text-center py-8 text-gray-400">
                         <div class="text-4xl mb-2">💰</div>
-                        <p class="text-sm">No hay ingresos registrados</p>
+                        <p class="text-sm">No hay ingresos registrados para este periodo</p>
                     </li>
                 `;
             } else {
@@ -368,8 +445,8 @@
                     const li = document.createElement('li');
                     li.className = 'flex justify-between items-center p-4 bg-green-50 border border-green-200 rounded-lg mb-3 transition-all duration-200 hover:scale-[1.02]';
                     
-                    // Asegurar ID para la función onclick
-                    const safeId = income.id.replace(/'/g, "\\'");
+                    // Asegurar que el ID se pasa correctamente a deleteTransaction
+                    const safeId = income.id;
                     
                     li.innerHTML = `
                         <div class="flex-1">
@@ -381,7 +458,7 @@
                             </div>
                             <div class="flex items-center justify-between mt-2">
                                 <span class="text-xs text-gray-500">${new Date(income.timestamp).toLocaleDateString('es-PE')}</span>
-                                <button onclick="deleteTransaction('${safeId}', 'income')" 
+                                <button onclick="deleteTransaction('${safeId.replace(/'/g, "\\'")}', 'income')" 
                                         class="delete-btn text-gray-400 hover:text-red-500 transition-colors duration-200 p-1 rounded"
                                         title="Eliminar">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -411,7 +488,7 @@
                 elements.expenseList.innerHTML = `
                     <li class="text-center py-8 text-gray-400">
                         <div class="text-4xl mb-2">💸</div>
-                        <p class="text-sm">No hay gastos registrados</p>
+                        <p class="text-sm">No hay gastos registrados para este periodo</p>
                     </li>
                 `;
             } else {
@@ -422,8 +499,8 @@
                     const li = document.createElement('li');
                     li.className = 'flex justify-between items-center p-4 bg-red-50 border border-red-200 rounded-lg mb-3 transition-all duration-200 hover:scale-[1.02]';
                     
-                    // Asegurar ID para la función onclick
-                    const safeId = expense.id.replace(/'/g, "\\'");
+                    // Asegurar que el ID se pasa correctamente a deleteTransaction
+                    const safeId = expense.id;
                     
                     li.innerHTML = `
                         <div class="flex-1">
@@ -435,7 +512,7 @@
                             </div>
                             <div class="flex items-center justify-between mt-2">
                                 <span class="text-xs text-gray-500">${new Date(expense.timestamp).toLocaleDateString('es-PE')}</span>
-                                <button onclick="deleteTransaction('${safeId}', 'expense')" 
+                                <button onclick="deleteTransaction('${safeId.replace(/'/g, "\\'")}', 'expense')" 
                                         class="delete-btn text-gray-400 hover:text-red-500 transition-colors duration-200 p-1 rounded"
                                         title="Eliminar">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -470,7 +547,7 @@
             }
         }
 
-        // Poblar filtro de meses
+        // Poblar filtro de meses (Misma que antes)
         function populateMonthFilter() {
             const today = new Date();
             const currentMonth = today.getMonth();
@@ -495,37 +572,13 @@
             elements.monthFilter.innerHTML = optionsHTML;
         }
 
-        // Funciones CRUD
-        function addTransaction(name, amount, type) {
-            if (!name || isNaN(amount) || amount <= 0) {
-                showMessage("Por favor, ingresa un nombre y cantidad válida (mayor a 0)");
-                return;
-            }
-
-            const transaction = {
-                id: 'id_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
-                name: name.trim(),
-                amount: parseFloat(amount),
-                timestamp: new Date().toISOString()
-            };
-
-            if (type === 'income') {
-                allIncomes.push(transaction);
-                elements.incomeName.value = '';
-                elements.incomeAmount.value = '';
-                showMessage('Ingreso registrado exitosamente', 'success');
-            } else {
-                allExpenses.push(transaction);
-                elements.expenseName.value = '';
-                elements.expenseAmount.value = '';
-                showMessage('Gasto registrado exitosamente', 'success');
-            }
-
-            saveDataToLocal(); // Guardar el cambio
-            handleDataChange();
+        // Función para manejar el cambio en el filtro y disparar la re-renderización
+        function handleFilterChange() {
+            filterAndRenderData();
         }
 
-        // --- Funciones Adicionales ---
+
+        // --- Funciones Adicionales (Mismas que antes) ---
 
         function analyzeFinancesWithGemini() {
             elements.analyzeButton.disabled = true;
@@ -661,24 +714,34 @@
             showMessage(`Datos exportados exitosamente como ${fileName}`, 'success');
         }
 
-        // --- Inicialización de la Aplicación ---
 
-        // 1. Llenar el filtro de meses
-        populateMonthFilter();
+        // --- Inicialización de la Aplicación (Usando Firebase Listeners) ---
 
-        // 2. Asignación de Eventos
-        elements.monthFilter.addEventListener('change', handleDataChange);
-        elements.addIncomeBtn.addEventListener('click', () => {
-            addTransaction(elements.incomeName.value, elements.incomeAmount.value, 'income');
-        });
-        elements.addExpenseBtn.addEventListener('click', () => {
-            addTransaction(elements.expenseName.value, elements.expenseAmount.value, 'expense');
-        });
-        elements.analyzeButton.addEventListener('click', analyzeFinancesWithGemini);
-        elements.exportBtn.addEventListener('click', exportDataToCSV);
+        function initApp() {
+            // 1. Llenar el filtro de meses
+            populateMonthFilter();
 
-        // 3. Cargar la vista inicial (mostrar los datos del mes actual)
-        handleDataChange(); 
+            // 2. Asignación de Eventos
+            elements.monthFilter.addEventListener('change', handleFilterChange);
+            elements.addIncomeBtn.addEventListener('click', () => {
+                addTransaction(elements.incomeName.value, elements.incomeAmount.value, 'income');
+            });
+            elements.addExpenseBtn.addEventListener('click', () => {
+                addTransaction(elements.expenseName.value, elements.expenseAmount.value, 'expense');
+            });
+            elements.analyzeButton.addEventListener('click', analyzeFinancesWithGemini);
+            elements.exportBtn.addEventListener('click', exportDataToCSV);
+
+            // 3. Establecer Listeners de Firebase para la actualización en tiempo real
+            db.collection('users').doc(userId).collection('incomes').onSnapshot(loadAndFilterData);
+            db.collection('users').doc(userId).collection('expenses').onSnapshot(loadAndFilterData);
+
+            // Nota: Con onSnapshot, no necesitamos llamar a loadAndFilterData() aquí. 
+            // La primera carga se dispara automáticamente.
+        }
+
+        initApp();
+
     </script>
 </body>
 </html>
