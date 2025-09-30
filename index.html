@@ -255,30 +255,30 @@
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, addDoc, setDoc, deleteDoc, onSnapshot, collection, query, where, Timestamp, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // --- CONFIGURACIÓN Y AUTENTICACIÓN FIREBASE (MANDATORIO) ---
-        // Variables globales proporcionadas por el entorno de Canvas
+        // --- FIREBASE CONFIGURATION AND AUTHENTICATION (MANDATORY) ---
+        // Global variables provided by the Canvas environment
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
         const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
         const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
         
-        // Inicialización de Firebase
+        // Initialize Firebase
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
         const auth = getAuth(app);
-        setLogLevel('debug'); // Logging requerido para Canvas
+        setLogLevel('debug'); // Logging required for Canvas
 
         let userId = null;
         let isAuthReady = false;
         let listenersInitialized = false; 
         
-        // Variables globales para almacenar TODOS los datos (sin filtrar)
+        // Global variables to store ALL data (unfiltered)
         let allIncomes = []; 
         let allExpenses = []; 
-        // Variables para almacenar los datos actualmente filtrados y mostrados
+        // Variables to store the currently filtered and displayed data
         let currentIncomes = [];
         let currentExpenses = [];
         
-        // --- REFERENCIAS DE ELEMENTOS DEL DOM ---
+        // --- DOM ELEMENT REFERENCES ---
         const elements = {
             incomeName: document.getElementById('income-name'),
             incomeAmount: document.getElementById('income-amount'),
@@ -302,9 +302,9 @@
             exportBtn: document.getElementById('export-btn')
         };
         
-        // --- UTILIDADES ---
+        // --- UTILITIES ---
 
-        /** Muestra un mensaje temporal en la caja de notificaciones. */
+        /** Displays a temporary message in the notification box. */
         function showMessage(message, type = 'error') {
             const icon = type === 'success' ? '✅' : type === 'warning' ? '⚠️' : '❌';
             const bgColor = type === 'success' ? 'bg-green-50' : type === 'warning' ? 'bg-yellow-50' : 'bg-red-50';
@@ -329,7 +329,7 @@
             }, 5000);
         }
 
-        /** Formatea un número a Soles Peruanos (PEN). */
+        /** Formats a number to Peruvian Soles (PEN). */
         function formatCurrency(amount) {
             return new Intl.NumberFormat('es-PE', {
                 style: 'currency',
@@ -337,7 +337,7 @@
             }).format(amount);
         }
 
-        /** Convierte un array a formato CSV y dispara la descarga. */
+        /** Converts an array to CSV format and triggers the download. */
         function exportToCSV(data, filename = 'finanzas_exportadas.csv') {
             if (data.length === 0) {
                 showMessage('No hay datos filtrados para exportar.', 'warning');
@@ -349,7 +349,7 @@
             const rows = data.map(item => [
                 item.id,
                 item.type,
-                `"${item.name.replace(/"/g, '""')}"`, // Escapar comillas dobles
+                `"${item.name.replace(/"/g, '""')}"`, // Escape double quotes
                 item.amount.toFixed(2),
                 new Date(item.timestamp).toLocaleDateString('es-PE')
             ].join(','));
@@ -373,28 +373,28 @@
         }
 
 
-        // --- FUNCIONES CRUD Y MANEJO DE ESTADO ---
+        // --- CRUD FUNCTIONS AND STATE MANAGEMENT ---
 
-        /** * Elimina una transacción de Firestore. 
-         * Esta función debe ser global (window.) para ser llamada desde el HTML dinámico.
+        /** * Deletes a transaction from Firestore. 
+         * This function must be global (window.) to be called from the dynamic HTML.
          */
         window.deleteTransaction = async function(id, type) {
             if (!isAuthReady) return showMessage("Autenticación no lista. Intenta de nuevo.", 'warning');
             const collectionName = type === 'income' ? 'incomes' : 'expenses';
             
             try {
-                // Ruta: /artifacts/{appId}/users/{userId}/incomes/docId
+                // Path: /artifacts/{appId}/users/{userId}/incomes/docId
                 const docRef = doc(db, 'artifacts', appId, 'users', userId, collectionName, id);
                 await deleteDoc(docRef);
                 showMessage(`${type === 'income' ? 'Ingreso' : 'Gasto'} eliminado exitosamente.`, 'success');
-                // onSnapshot se encargará de actualizar la vista
+                // onSnapshot will handle the view update
             } catch (error) {
                 console.error("Error al eliminar la transacción:", error);
                 showMessage(`Error al eliminar: ${error.message}`);
             }
         };
 
-        /** Agrega una transacción a Firestore. */
+        /** Adds a transaction to Firestore. */
         async function addTransaction(name, amount, type) {
             if (!isAuthReady) return showMessage("Autenticación no lista. Intenta de nuevo.", 'warning');
 
@@ -408,15 +408,15 @@
             const transactionData = {
                 name: name.trim(),
                 amount: parseFloat(amount),
-                timestamp: Timestamp.fromDate(new Date()) // Usamos Timestamp de Firestore
+                timestamp: Timestamp.fromDate(new Date()) // Use Firestore Timestamp
             };
 
             try {
-                // Ruta: /artifacts/{appId}/users/{userId}/incomes
+                // Path: /artifacts/{appId}/users/{userId}/incomes
                 const colRef = collection(db, 'artifacts', appId, 'users', userId, collectionName);
                 await addDoc(colRef, transactionData);
 
-                // Limpiar campos
+                // Clear input fields
                 if (type === 'income') {
                     elements.incomeName.value = '';
                     elements.incomeAmount.value = '';
@@ -426,14 +426,14 @@
                 }
                 showMessage(`${type === 'income' ? 'Ingreso' : 'Gasto'} registrado exitosamente.`, 'success');
 
-                // onSnapshot se encargará de actualizar la vista
+                // onSnapshot will handle the view update
             } catch (error) {
                 console.error("Error al añadir la transacción:", error);
                 showMessage(`Error al añadir: ${error.message}`);
             }
         }
         
-        /** Renderiza la lista de transacciones y actualiza las estadísticas. */
+        /** Filters and renders the transaction list, and updates statistics. */
         function filterAndRenderData() {
             const selectedValue = elements.monthFilter.value;
             let totalIncome = 0;
@@ -442,7 +442,7 @@
             currentIncomes = [];
             currentExpenses = [];
             
-            // Función de filtrado por mes/año
+            // Filtering function by month/year
             const filterByMonth = (transaction) => {
                 if (selectedValue === 'all') return true;
                 const date = new Date(transaction.timestamp);
@@ -451,7 +451,7 @@
                 return `${String(month).padStart(2, '0')}-${year}` === selectedValue;
             };
             
-            // Función para mostrar mensaje de lista vacía
+            // Function to display empty list message
             const getEmptyMessage = (type) => `
                 <li class="text-center py-8 text-gray-400">
                     <div class="text-4xl mb-2">${type === 'income' ? '💰' : '💸'}</div>
@@ -459,9 +459,9 @@
                 </li>
             `;
 
-            // --- PROCESAR INGRESOS ---
+            // --- PROCESS INCOMES ---
             elements.incomeList.innerHTML = '';
-            // Ordenamos por timestamp (más reciente primero) y aplicamos el filtro
+            // Sort by timestamp (most recent first) and apply filter
             const filteredIncomes = allIncomes.filter(filterByMonth).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
             
             if (filteredIncomes.length === 0) {
@@ -474,7 +474,7 @@
                     const dateStr = new Date(income.timestamp).toLocaleDateString('es-PE');
                     const safeId = income.id;
                     
-                    // Renderiza el ítem con el botón de eliminar
+                    // Render the item with the delete button
                     elements.incomeList.innerHTML += `
                         <li class="flex justify-between items-center p-4 bg-green-50 border border-green-200 rounded-lg transition-all duration-200 hover:shadow-md">
                             <div class="flex-1 min-w-0 pr-2">
@@ -498,9 +498,9 @@
                 });
             }
 
-            // --- PROCESAR GASTOS ---
+            // --- PROCESS EXPENSES ---
             elements.expenseList.innerHTML = '';
-            // Ordenamos por timestamp (más reciente primero) y aplicamos el filtro
+            // Sort by timestamp (most recent first) and apply filter
             const filteredExpenses = allExpenses.filter(filterByMonth).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
             
             if (filteredExpenses.length === 0) {
@@ -513,7 +513,7 @@
                     const dateStr = new Date(expense.timestamp).toLocaleDateString('es-PE');
                     const safeId = expense.id;
 
-                    // Renderiza el ítem con el botón de eliminar
+                    // Render the item with the delete button
                     elements.expenseList.innerHTML += `
                         <li class="flex justify-between items-center p-4 bg-red-50 border border-red-200 rounded-lg transition-all duration-200 hover:shadow-md">
                             <div class="flex-1 min-w-0 pr-2">
@@ -537,18 +537,18 @@
                 });
             }
 
-            // Actualizar estadísticas
+            // Update statistics
             elements.totalIncome.textContent = formatCurrency(totalIncome);
             elements.totalExpense.textContent = formatCurrency(totalExpenses);
             
             const netBalance = totalIncome - totalExpenses;
             elements.netBalance.textContent = formatCurrency(netBalance);
 
-            // Actualizar contadores
+            // Update counters
             elements.incomeCount.textContent = `${filteredIncomes.length} registros`;
             elements.expenseCount.textContent = `${filteredExpenses.length} registros`;
 
-            // Actualizar estilo del balance neto
+            // Update net balance style
             if (netBalance > 0) {
                 elements.netBalance.className = 'text-3xl font-bold text-green-600';
             } else if (netBalance < 0) {
@@ -558,7 +558,7 @@
             }
         }
 
-        /** Carga y actualiza los meses en el filtro. */
+        /** Loads and updates the months in the filter. */
         function populateMonthFilter(transactions) {
             const months = new Set();
             transactions.forEach(t => {
@@ -571,7 +571,7 @@
             const sortedMonths = Array.from(months).sort((a, b) => {
                 const [m1, y1] = a.split('-').map(Number);
                 const [m2, y2] = b.split('-').map(Number);
-                return (y2 * 12 + m2) - (y1 * 12 + m1); // Orden descendente por fecha
+                return (y2 * 12 + m2) - (y1 * 12 + m1); // Descending order by date
             });
 
             const monthNames = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", 
@@ -580,10 +580,10 @@
             let optionsHTML = `<option value="all">📅 Todos los meses</option>`;
             const today = new Date();
             const currentMonthValue = `${String(today.getMonth() + 1).padStart(2, '0')}-${today.getFullYear()}`;
-            let selectedOptionValue = elements.monthFilter.value; // Mantener la selección actual si existe
+            let selectedOptionValue = elements.monthFilter.value; // Keep current selection if it exists
 
             if (!selectedOptionValue || !sortedMonths.includes(selectedOptionValue)) {
-                // Si no hay selección o la selección no existe, intentar usar el mes actual
+                // If no selection or the selection doesn't exist, try to use the current month
                 selectedOptionValue = currentMonthValue;
             }
 
@@ -595,7 +595,7 @@
                 optionsHTML += `<option value="${value}" ${value === selectedOptionValue ? 'selected' : ''}>${emoji} ${label}</option>`;
             });
 
-            // Si el mes actual no estaba en la lista de transacciones, pero es el mes seleccionado, lo agregamos.
+            // If the current month was not in the transaction list, but is the selected month, we add it.
             if (!sortedMonths.includes(currentMonthValue) && selectedOptionValue === currentMonthValue) {
                  const currentMonthLabel = `${monthNames[today.getMonth()]} ${today.getFullYear()}`;
                  optionsHTML = `<option value="${currentMonthValue}" selected>🎯 ${currentMonthLabel}</option>` + optionsHTML.replace(`<option value="all">📅 Todos los meses</option>`, '');
@@ -603,10 +603,10 @@
             }
 
             elements.monthFilter.innerHTML = optionsHTML;
-            elements.monthFilter.value = selectedOptionValue; // Asegurar que el valor seleccionado se aplique
+            elements.monthFilter.value = selectedOptionValue; // Ensure the selected value is applied
         }
 
-        // --- LÓGICA DE LA IA DE GEMINI (CON EXPONENTIAL BACKOFF) ---
+        // --- GEMINI AI LOGIC (WITH EXPONENTIAL BACKOFF) ---
         
         async function fetchWithRetry(url, options, maxRetries = 5) {
             for (let i = 0; i < maxRetries; i++) {
@@ -659,7 +659,7 @@
             const totalExpense = currentExpenses.reduce((sum, item) => sum + item.amount, 0);
             const balance = totalIncome - totalExpense;
 
-            // Construir la tabla de datos para la IA
+            // Build the data table for the AI
             const dataTable = transactions.map(t => {
                 const sign = t.type === 'income' ? '+' : '-';
                 const date = new Date(t.timestamp).toLocaleDateString('es-PE');
@@ -703,93 +703,93 @@
             }
         }
         
-        // --- INICIALIZACIÓN Y LISTENERS PRINCIPALES ---
+        // --- MAIN INITIALIZATION AND LISTENERS ---
 
-        /** Establece los escuchadores de Firestore. */
+        /** Sets up the Firestore listeners. */
         function setupFirestoreListeners() {
             if (!isAuthReady || !userId) {
-                console.warn("setupFirestoreListeners llamada antes de que la autenticación esté lista.");
+                console.warn("setupFirestoreListeners called before authentication is ready.");
                 return;
             }
 
-            // 1. Listener para Ingresos
+            // 1. Listener for Incomes
             const incomeColRef = collection(db, 'artifacts', appId, 'users', userId, 'incomes');
             onSnapshot(incomeColRef, (snapshot) => {
                 allIncomes = snapshot.docs.map(doc => ({
                     id: doc.id,
                     ...doc.data(),
-                    // Asegurar que el timestamp sea un formato utilizable por Date
+                    // Ensure timestamp is in a format usable by Date
                     timestamp: doc.data().timestamp ? doc.data().timestamp.toDate().toISOString() : new Date().toISOString()
                 }));
                 const allTransactions = [...allIncomes, ...allExpenses];
-                populateMonthFilter(allTransactions); // Actualiza el filtro de meses
-                filterAndRenderData(); // Re-renderiza con el filtro actual
+                populateMonthFilter(allTransactions); // Update month filter
+                filterAndRenderData(); // Re-render with the current filter
             }, (error) => {
-                console.error("Error al escuchar ingresos (transitorio):", error);
+                console.error("Error listening to incomes (transient):", error);
                 showMessage("Error al cargar ingresos en tiempo real. Revisa tus permisos de Firestore.", 'error');
             });
 
-            // 2. Listener para Gastos
+            // 2. Listener for Expenses
             const expenseColRef = collection(db, 'artifacts', appId, 'users', userId, 'expenses');
             onSnapshot(expenseColRef, (snapshot) => {
                 allExpenses = snapshot.docs.map(doc => ({
                     id: doc.id,
                     ...doc.data(),
-                    // Asegurar que el timestamp sea un formato utilizable por Date
+                    // Ensure timestamp is in a format usable by Date
                     timestamp: doc.data().timestamp ? doc.data().timestamp.toDate().toISOString() : new Date().toISOString()
                 }));
                 const allTransactions = [...allIncomes, ...allExpenses];
-                populateMonthFilter(allTransactions); // Actualiza el filtro de meses
-                filterAndRenderData(); // Re-renderiza con el filtro actual
+                populateMonthFilter(allTransactions); // Update month filter
+                filterAndRenderData(); // Re-render with the current filter
             }, (error) => {
-                console.error("Error al escuchar gastos (transitorio):", error);
+                console.error("Error listening to expenses (transient):", error);
                 showMessage("Error al cargar gastos en tiempo real. Revisa tus permisos de Firestore.", 'error');
             });
             
-            // Mostrar ID de usuario una vez que esté disponible
+            // Display User ID once available
             elements.authStatusDisplay.textContent = '☁️ Conectado (Tiempo Real)';
         }
 
-        /** Inicializa el flujo de autenticación. */
+        /** Initializes the authentication flow. */
         async function initializeAuth() {
             try {
                 if (initialAuthToken) {
                     await signInWithCustomToken(auth, initialAuthToken);
                 } else {
-                    // Si no hay token, iniciamos sesión anónima (siempre habrá un user object aquí)
+                    // If no token, sign in anonymously (always provides a user object here)
                     await signInAnonymously(auth);
                 }
             } catch (error) {
-                console.error("Error durante la autenticación:", error);
+                console.error("Error during authentication:", error);
                 showMessage(`Error de Autenticación: ${error.message}`, 'error');
                 elements.authStatusDisplay.textContent = '❌ Error de Conexión';
             }
         }
 
-        // Clave para guardar el ID anónimo en localStorage
+        // Key to save the anonymous ID in localStorage
         const ANONYMOUS_USER_KEY = `anon_user_id_${appId}`;
 
-        // Listener de estado de autenticación (Se ejecuta una vez al inicio y en cada cambio)
+        // Authentication state listener (Runs once at start and on every change)
         onAuthStateChanged(auth, (user) => {
             if (!listenersInitialized) {
                 if (user && user.isAnonymous === false) {
-                    // Usuario autenticado (ej. con token de autenticación)
+                    // Authenticated user (e.g., with auth token)
                     userId = user.uid;
                     elements.userIdDisplay.textContent = `ID Usuario: ${userId}`;
                     elements.authStatusDisplay.textContent = '✅ Sesión Autenticada';
-                    localStorage.removeItem(ANONYMOUS_USER_KEY); // Limpiar ID anónimo si hay autenticación real
+                    localStorage.removeItem(ANONYMOUS_USER_KEY); // Clear anonymous ID if there's real authentication
                 } else {
-                    // Usuario anónimo (ya sea por signInAnonymously o por no haber token)
+                    // Anonymous user (either via signInAnonymously or no token)
                     let storedId = localStorage.getItem(ANONYMOUS_USER_KEY);
                     if (storedId) {
-                        // FIX 2: Usar ID persistente de localStorage
+                        // Use persistent ID from localStorage
                         userId = storedId;
                     } else if (user?.uid) {
-                        // Usar el UID del usuario anónimo recién creado y guardarlo
+                        // Use the UID of the newly created anonymous user and save it
                         userId = user.uid;
                         localStorage.setItem(ANONYMOUS_USER_KEY, userId);
                     } else {
-                        // Fallback (esto solo debería ocurrir si Firebase no devuelve un UID)
+                        // Fallback (this should only happen if Firebase doesn't return a UID)
                         userId = crypto.randomUUID(); 
                         localStorage.setItem(ANONYMOUS_USER_KEY, userId);
                     }
@@ -803,7 +803,7 @@
             }
         });
 
-        // --- MANEJO DE EVENTOS ---
+        // --- EVENT HANDLERS ---
         
         elements.addIncomeBtn.addEventListener('click', () => {
             addTransaction(elements.incomeName.value, elements.incomeAmount.value, 'income');
@@ -828,10 +828,10 @@
             exportToCSV(dataToExport, `Finanzas_Export_${elements.monthFilter.value}.csv`);
         });
 
-        // Iniciar el flujo de autenticación al cargar la página
+        // Start the authentication flow on page load
         initializeAuth();
         
-        // Inicializar las listas vacías
+        // Initialize empty lists display
         filterAndRenderData();
     </script>
 </body>
