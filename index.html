@@ -3,673 +3,409 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Control de Ingresos y Gastos</title>
-    
-    <!-- Tailwind CSS -->
+    <title>Control Financiero</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    
-    <!-- Fuentes y Favicon -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>💰</text></svg>">
-    
-    <style>
-        body {
-            font-family: 'Inter', sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-        }
-        .glass-card {
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-        }
-        .list-container {
-            max-height: 400px;
-            overflow-y: auto;
-        }
-    </style>
 </head>
-<body class="min-h-screen py-8 px-4">
-    <div class="max-w-6xl mx-auto">
-        <!-- Header -->
-        <div class="glass-card rounded-2xl p-8 mb-8 text-center">
-            <h1 class="text-4xl font-bold text-gray-800 mb-2">💰 Control Financiero Personal</h1>
-            <p class="text-gray-600 mb-4">Gestiona tus ingresos y gastos en Soles Peruanos</p>
-            <div class="flex flex-wrap items-center justify-center space-x-4 text-sm text-gray-500">
-                <span id="auth-status-display" class="bg-green-100 text-green-700 px-3 py-1 rounded-full">
-                    ✅ Datos Locales
-                </span>
-                <span class="bg-blue-100 text-blue-700 px-3 py-1 rounded-full">💳 Soles (PEN)</span>
-            </div>
-        </div>
-
-        <!-- Mensajes -->
-        <div id="message-box" class="hidden mb-6"></div>
-
-        <!-- Estadísticas -->
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            <div class="bg-white rounded-2xl p-6 shadow-lg border border-green-200">
-                <div class="flex items-center justify-between mb-4">
-                    <h3 class="text-sm font-semibold text-gray-500 uppercase">Total Ingresos</h3>
-                    <span class="text-2xl">📥</span>
-                </div>
-                <div class="text-3xl font-bold text-green-600 mb-2" id="total-income">S/ 0.00</div>
-                <div class="text-xs text-gray-500">Ingresos del periodo</div>
-            </div>
-
-            <div class="bg-white rounded-2xl p-6 shadow-lg border border-red-200">
-                <div class="flex items-center justify-between mb-4">
-                    <h3 class="text-sm font-semibold text-gray-500 uppercase">Total Gastos</h3>
-                    <span class="text-2xl">📤</span>
-                </div>
-                <div class="text-3xl font-bold text-red-600 mb-2" id="total-expense">S/ 0.00</div>
-                <div class="text-xs text-gray-500">Gastos del periodo</div>
-            </div>
-
-            <div class="bg-white rounded-2xl p-6 shadow-lg border border-blue-200">
-                <div class="flex items-center justify-between mb-4">
-                    <h3 class="text-sm font-semibold text-gray-500 uppercase">Balance Neto</h3>
-                    <span class="text-2xl">⚖️</span>
-                </div>
-                <div class="text-3xl font-bold text-gray-600 mb-2" id="net-balance">S/ 0.00</div>
-                <div class="text-xs text-gray-500">Resultado financiero neto</div>
-            </div>
-        </div>
-
-        <!-- Filtro -->
-        <div class="glass-card rounded-2xl p-6 mb-8">
-            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                <div>
-                    <h3 class="text-lg font-semibold text-gray-800 mb-1">📊 Filtro de Periodo</h3>
-                    <p class="text-sm text-gray-600">Selecciona el mes que deseas visualizar</p>
-                </div>
-                <select id="month-filter" class="bg-white border border-gray-300 rounded-xl px-4 py-3 focus:ring-2 focus:ring-blue-500 min-w-[200px]">
-                    <option value="all">📅 Todos los meses</option>
-                </select>
-            </div>
-        </div>
+<body class="bg-gray-100 min-h-screen p-4">
+    <div class="max-w-4xl mx-auto">
+        <h1 class="text-3xl font-bold text-center mb-8">💰 Mis Finanzas</h1>
 
         <!-- Formularios -->
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-            <!-- Ingresos -->
-            <div class="glass-card rounded-2xl p-6 border border-green-200">
-                <div class="flex items-center mb-6">
-                    <div class="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center mr-3">
-                        <span class="text-xl">💹</span>
-                    </div>
-                    <div>
-                        <h3 class="text-xl font-semibold text-gray-800">Agregar Ingreso</h3>
-                        <p class="text-sm text-gray-600">Registra nuevos ingresos</p>
-                    </div>
-                </div>
-                
-                <div class="space-y-4">
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Descripción</label>
-                        <input type="text" id="income-name" placeholder="Ej: Salario, Ventas, Bonificación"
-                               class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500">
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Monto (S/)</label>
-                        <input type="number" id="income-amount" placeholder="0.00" step="0.01" min="0.01"
-                               class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500">
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Categoría</label>
-                        <select id="income-category" class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500">
-                            <option value="Salario">💰 Salario</option>
-                            <option value="Freelance">💻 Freelance</option>
-                            <option value="Inversiones">📈 Inversiones</option>
-                            <option value="Otros">🔶 Otros</option>
-                        </select>
-                    </div>
-                    <button id="add-income-btn"
-                            class="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-4 rounded-xl transition-colors duration-200">
-                        ➕ Agregar Ingreso
-                    </button>
-                </div>
+        <div class="grid md:grid-cols-2 gap-6 mb-8">
+            <!-- Ingreso -->
+            <div class="bg-white p-6 rounded-lg shadow">
+                <h2 class="text-xl font-semibold mb-4">➕ Agregar Ingreso</h2>
+                <input type="text" id="income-desc" placeholder="Descripción" class="w-full p-2 border rounded mb-2">
+                <input type="number" id="income-amount" placeholder="Monto" class="w-full p-2 border rounded mb-4">
+                <button onclick="addIncome()" class="w-full bg-green-500 text-white p-2 rounded hover:bg-green-600">
+                    Agregar Ingreso
+                </button>
             </div>
 
-            <!-- Gastos -->
-            <div class="glass-card rounded-2xl p-6 border border-red-200">
-                <div class="flex items-center mb-6">
-                    <div class="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center mr-3">
-                        <span class="text-xl">📉</span>
-                    </div>
-                    <div>
-                        <h3 class="text-xl font-semibold text-gray-800">Agregar Gasto</h3>
-                        <p class="text-sm text-gray-600">Registra nuevos gastos</p>
-                    </div>
-                </div>
-                
-                <div class="space-y-4">
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Descripción</label>
-                        <input type="text" id="expense-name" placeholder="Ej: Alquiler, Comida, Transporte"
-                               class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-red-500">
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Monto (S/)</label>
-                        <input type="number" id="expense-amount" placeholder="0.00" step="0.01" min="0.01"
-                               class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-red-500">
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Categoría</label>
-                        <select id="expense-category" class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-red-500">
-                            <option value="Alimentación">🍎 Alimentación</option>
-                            <option value="Transporte">🚗 Transporte</option>
-                            <option value="Vivienda">🏠 Vivienda</option>
-                            <option value="Entretenimiento">🎬 Entretenimiento</option>
-                            <option value="Otros">🔶 Otros</option>
-                        </select>
-                    </div>
-                    <button id="add-expense-btn"
-                            class="w-full bg-red-600 hover:bg-red-700 text-white font-semibold py-3 px-4 rounded-xl transition-colors duration-200">
-                        ➖ Agregar Gasto
-                    </button>
-                </div>
+            <!-- Gasto -->
+            <div class="bg-white p-6 rounded-lg shadow">
+                <h2 class="text-xl font-semibold mb-4">➖ Agregar Gasto</h2>
+                <input type="text" id="expense-desc" placeholder="Descripción" class="w-full p-2 border rounded mb-2">
+                <input type="number" id="expense-amount" placeholder="Monto" class="w-full p-2 border rounded mb-4">
+                <button onclick="addExpense()" class="w-full bg-red-500 text-white p-2 rounded hover:bg-red-600">
+                    Agregar Gasto
+                </button>
             </div>
         </div>
 
-        <!-- Funcionalidades Extra -->
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-            <!-- IA -->
-            <div class="glass-card rounded-2xl p-6 border border-purple-200">
-                <div class="flex items-center mb-6">
-                    <div class="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center mr-3">
-                        <span class="text-xl">🤖</span>
-                    </div>
-                    <div>
-                        <h3 class="text-xl font-semibold text-gray-800">Análisis con IA</h3>
-                        <p class="text-sm text-gray-600">Obtén insights inteligentes</p>
-                    </div>
-                </div>
-                
-                <button id="analyze-button"
-                        class="w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3 px-4 rounded-xl transition-colors duration-200 mb-4">
-                    🤖 Generar Análisis con IA
-                </button>
-                
-                <div id="analysis-result" class="bg-gray-50 rounded-xl p-4 min-h-[120px]">
-                    <p class="text-gray-500 text-center italic py-4">Haz clic para obtener análisis</p>
-                </div>
+        <!-- Estadísticas -->
+        <div class="grid grid-cols-3 gap-4 mb-8">
+            <div class="bg-white p-4 rounded-lg shadow text-center">
+                <div class="text-2xl font-bold text-green-600" id="total-income">S/ 0</div>
+                <div class="text-sm text-gray-600">Total Ingresos</div>
             </div>
-
-            <!-- Exportar -->
-            <div class="glass-card rounded-2xl p-6 border border-gray-200">
-                <div class="flex items-center mb-6">
-                    <div class="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center mr-3">
-                        <span class="text-xl">💾</span>
-                    </div>
-                    <div>
-                        <h3 class="text-xl font-semibold text-gray-800">Exportar Datos</h3>
-                        <p class="text-sm text-gray-600">Guarda tu información</p>
-                    </div>
-                </div>
-                
-                <button id="export-btn"
-                        class="w-full bg-gray-600 hover:bg-gray-700 text-white font-semibold py-3 px-4 rounded-xl transition-colors duration-200">
-                    📥 Descargar CSV
-                </button>
+            <div class="bg-white p-4 rounded-lg shadow text-center">
+                <div class="text-2xl font-bold text-red-600" id="total-expense">S/ 0</div>
+                <div class="text-sm text-gray-600">Total Gastos</div>
+            </div>
+            <div class="bg-white p-4 rounded-lg shadow text-center">
+                <div class="text-2xl font-bold text-blue-600" id="balance">S/ 0</div>
+                <div class="text-sm text-gray-600">Balance</div>
             </div>
         </div>
 
         <!-- Listas -->
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <div class="grid md:grid-cols-2 gap-6">
             <!-- Ingresos -->
-            <div class="glass-card rounded-2xl p-6 border border-green-200">
-                <div class="flex items-center justify-between mb-6">
-                    <h3 class="text-xl font-semibold text-gray-800">📥 Historial de Ingresos</h3>
-                    <span id="income-count" class="bg-green-100 text-green-700 px-3 py-1 rounded-full text-sm">0 registros</span>
+            <div class="bg-white p-6 rounded-lg shadow">
+                <h2 class="text-xl font-semibold mb-4">📥 Ingresos</h2>
+                <div id="income-list" class="space-y-2">
+                    <!-- Los ingresos aparecerán aquí -->
                 </div>
-                <ul id="income-list" class="list-container space-y-3">
-                    <li class="text-center py-8 text-gray-400">
-                        <div class="text-4xl mb-2">💰</div>
-                        <p class="text-sm">No hay ingresos registrados</p>
-                    </li>
-                </ul>
             </div>
 
             <!-- Gastos -->
-            <div class="glass-card rounded-2xl p-6 border border-red-200">
-                <div class="flex items-center justify-between mb-6">
-                    <h3 class="text-xl font-semibold text-gray-800">📤 Historial de Gastos</h3>
-                    <span id="expense-count" class="bg-red-100 text-red-700 px-3 py-1 rounded-full text-sm">0 registros</span>
+            <div class="bg-white p-6 rounded-lg shadow">
+                <h2 class="text-xl font-semibold mb-4">📤 Gastos</h2>
+                <div id="expense-list" class="space-y-2">
+                    <!-- Los gastos aparecerán aquí -->
                 </div>
-                <ul id="expense-list" class="list-container space-y-3">
-                    <li class="text-center py-8 text-gray-400">
-                        <div class="text-4xl mb-2">💸</div>
-                        <p class="text-sm">No hay gastos registrados</p>
-                    </li>
-                </ul>
             </div>
         </div>
     </div>
 
-    <!-- Script Principal -->
     <script>
-        // ===== GESTIÓN DE DATOS =====
-        class FinanceManager {
-            constructor() {
-                this.allIncomes = [];
-                this.allExpenses = [];
-                this.currentIncomes = [];
-                this.currentExpenses = [];
-                this.userId = this.getUserId();
-                this.init();
+        // Datos en memoria (simples)
+        let incomes = JSON.parse(localStorage.getItem('incomes')) || [];
+        let expenses = JSON.parse(localStorage.getItem('expenses')) || [];
+
+        // Cargar datos al iniciar
+        window.addEventListener('load', function() {
+            updateDisplay();
+        });
+
+        // Función para agregar ingreso
+        function addIncome() {
+            const desc = document.getElementById('income-desc').value;
+            const amount = parseFloat(document.getElementById('income-amount').value);
+
+            if (!desc || !amount) {
+                alert('Por favor completa todos los campos');
+                return;
             }
 
-            getUserId() {
-                let userId = localStorage.getItem('finanzas_user_id');
-                if (!userId) {
-                    userId = 'user_' + Date.now();
-                    localStorage.setItem('finanzas_user_id', userId);
-                }
-                return userId;
+            const income = {
+                id: Date.now(),
+                desc: desc,
+                amount: amount,
+                date: new Date().toLocaleDateString()
+            };
+
+            incomes.push(income);
+            saveData();
+            updateDisplay();
+            
+            // Limpiar campos
+            document.getElementById('income-desc').value = '';
+            document.getElementById('income-amount').value = '';
+        }
+
+        // Función para agregar gasto
+        function addExpense() {
+            const desc = document.getElementById('expense-desc').value;
+            const amount = parseFloat(document.getElementById('expense-amount').value);
+
+            if (!desc || !amount) {
+                alert('Por favor completa todos los campos');
+                return;
             }
 
-            getStorageKey(type) {
-                return `finanzas_${type}_${this.userId}`;
-            }
+            const expense = {
+                id: Date.now(),
+                desc: desc,
+                amount: amount,
+                date: new Date().toLocaleDateString()
+            };
 
-            init() {
-                this.loadFromStorage();
-                this.setupEventListeners();
-                this.filterAndRenderData();
-                console.log('✅ FinanceManager inicializado');
-            }
+            expenses.push(expense);
+            saveData();
+            updateDisplay();
+            
+            // Limpiar campos
+            document.getElementById('expense-desc').value = '';
+            document.getElementById('expense-amount').value = '';
+        }
 
-            loadFromStorage() {
-                try {
-                    this.allIncomes = JSON.parse(localStorage.getItem(this.getStorageKey('incomes'))) || [];
-                    this.allExpenses = JSON.parse(localStorage.getItem(this.getStorageKey('expenses'))) || [];
-                    console.log('📊 Datos cargados:', { 
-                        ingresos: this.allIncomes.length, 
-                        gastos: this.allExpenses.length 
-                    });
-                } catch (error) {
-                    console.error('Error cargando datos:', error);
-                    this.showMessage('Error cargando datos guardados', 'error');
-                }
-            }
-
-            saveToStorage() {
-                try {
-                    localStorage.setItem(this.getStorageKey('incomes'), JSON.stringify(this.allIncomes));
-                    localStorage.setItem(this.getStorageKey('expenses'), JSON.stringify(this.allExpenses));
-                    console.log('💾 Datos guardados');
-                } catch (error) {
-                    console.error('Error guardando datos:', error);
-                }
-            }
-
-            // ===== MENSAJES =====
-            showMessage(message, type = 'error') {
-                const messageBox = document.getElementById('message-box');
-                const bgColor = type === 'success' ? 'bg-green-50 border-green-200 text-green-800' : 
-                               type === 'warning' ? 'bg-yellow-50 border-yellow-200 text-yellow-800' : 
-                               'bg-red-50 border-red-200 text-red-800';
-                
-                messageBox.innerHTML = `
-                    <div class="p-4 rounded-lg border ${bgColor} flex justify-between items-center">
-                        <span class="font-medium">${message}</span>
-                        <button onclick="this.parentElement.parentElement.classList.add('hidden')" 
-                                class="text-gray-500 hover:text-gray-700 ml-4">✕</button>
-                    </div>
-                `;
-                messageBox.classList.remove('hidden');
-                
-                setTimeout(() => {
-                    messageBox.classList.add('hidden');
-                }, 4000);
-            }
-
-            // ===== FORMATO DE MONEDA =====
-            formatCurrency(amount) {
-                return new Intl.NumberFormat('es-PE', {
-                    style: 'currency',
-                    currency: 'PEN'
-                }).format(amount);
-            }
-
-            // ===== VALIDACIÓN =====
-            validateTransaction(name, amount) {
-                if (!name || name.trim().length < 2) {
-                    return { isValid: false, error: 'La descripción debe tener al menos 2 caracteres' };
-                }
-                if (!amount || isNaN(amount) || parseFloat(amount) <= 0) {
-                    return { isValid: false, error: 'El monto debe ser un número positivo mayor a 0' };
-                }
-                return { isValid: true };
-            }
-
-            // ===== GESTIÓN DE TRANSACCIONES =====
-            addTransaction(name, amount, category, type) {
-                const validation = this.validateTransaction(name, amount);
-                if (!validation.isValid) {
-                    this.showMessage(validation.error);
-                    return false;
-                }
-
-                const transaction = {
-                    id: 'trx_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
-                    name: name.trim(),
-                    amount: parseFloat(amount),
-                    category: category,
-                    timestamp: new Date().toISOString(),
-                    type: type
-                };
-
+        // Función para eliminar (SIMPLE Y FUNCIONAL)
+        function deleteItem(id, type) {
+            if (confirm('¿Estás seguro de eliminar?')) {
                 if (type === 'income') {
-                    this.allIncomes.push(transaction);
+                    incomes = incomes.filter(income => income.id !== id);
                 } else {
-                    this.allExpenses.push(transaction);
+                    expenses = expenses.filter(expense => expense.id !== id);
                 }
-
-                this.saveToStorage();
-                this.populateMonthFilter();
-                this.filterAndRenderData();
-                
-                this.showMessage(
-                    `${type === 'income' ? 'Ingreso' : 'Gasto'} "${name}" agregado correctamente`, 
-                    'success'
-                );
-                
-                return true;
+                saveData();
+                updateDisplay();
             }
+        }
 
-            deleteTransaction(id, type) {
-                const confirmDelete = confirm(
-                    `¿Estás seguro de que quieres eliminar este ${type === 'income' ? 'ingreso' : 'gasto'}?`
-                );
-                
-                if (!confirmDelete) return false;
+        // Guardar datos en localStorage
+        function saveData() {
+            localStorage.setItem('incomes', JSON.stringify(incomes));
+            localStorage.setItem('expenses', JSON.stringify(expenses));
+        }
 
-                if (type === 'income') {
-                    this.allIncomes = this.allIncomes.filter(income => income.id !== id);
-                } else {
-                    this.allExpenses = this.allExpenses.filter(expense => expense.id !== id);
-                }
+        // Actualizar la visualización
+        function updateDisplay() {
+            // Actualizar estadísticas
+            const totalIncome = incomes.reduce((sum, item) => sum + item.amount, 0);
+            const totalExpense = expenses.reduce((sum, item) => sum + item.amount, 0);
+            const balance = totalIncome - totalExpense;
 
-                this.saveToStorage();
-                this.filterAndRenderData();
-                
-                this.showMessage(
-                    `${type === 'income' ? 'Ingreso' : 'Gasto'} eliminado correctamente`, 
-                    'success'
-                );
-                
-                return true;
-            }
+            document.getElementById('total-income').textContent = `S/ ${totalIncome.toFixed(2)}`;
+            document.getElementById('total-expense').textContent = `S/ ${totalExpense.toFixed(2)}`;
+            document.getElementById('balance').textContent = `S/ ${balance.toFixed(2)}`;
 
-            // ===== RENDERIZADO =====
-            renderTransactionItem(transaction, type) {
-                const date = new Date(transaction.timestamp).toLocaleDateString('es-PE');
-                const bgColor = type === 'income' ? 'bg-green-50' : 'bg-red-50';
-                const borderColor = type === 'income' ? 'border-green-200' : 'border-red-200';
-                const textColor = type === 'income' ? 'text-green-600' : 'text-red-600';
-                const badgeColor = type === 'income' ? 'bg-green-200 text-green-800' : 'bg-red-200 text-red-800';
-
-                return `
-                    <li class="flex justify-between items-center p-4 ${bgColor} border ${borderColor} rounded-lg transition-colors duration-200 hover:shadow-sm">
-                        <div class="flex-1 min-w-0">
-                            <div class="font-semibold text-gray-800 truncate">${transaction.name}</div>
-                            <div class="flex items-center mt-1 space-x-2">
-                                <span class="text-xs text-gray-500">${date}</span>
-                                <span class="text-xs ${badgeColor} px-2 py-1 rounded-full">${transaction.category}</span>
-                            </div>
+            // Actualizar lista de ingresos
+            const incomeList = document.getElementById('income-list');
+            if (incomes.length === 0) {
+                incomeList.innerHTML = '<p class="text-gray-500 text-center">No hay ingresos</p>';
+            } else {
+                incomeList.innerHTML = incomes.map(income => `
+                    <div class="flex justify-between items-center p-3 bg-green-50 rounded border">
+                        <div>
+                            <div class="font-medium">${income.desc}</div>
+                            <div class="text-sm text-gray-600">${income.date}</div>
                         </div>
-                        <div class="flex items-center space-x-3 ml-4">
-                            <span class="text-lg font-bold ${textColor} whitespace-nowrap">
-                                ${this.formatCurrency(transaction.amount)}
-                            </span>
-                            <button onclick="financeManager.deleteTransaction('${transaction.id}', '${type}')" 
-                                    class="text-gray-400 hover:text-red-500 transition-colors duration-200 p-1 rounded"
-                                    title="Eliminar">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
-                                </svg>
-                            </button>
+                        <div class="flex items-center gap-2">
+                            <span class="font-bold text-green-600">S/ ${income.amount.toFixed(2)}</span>
+                            <button onclick="deleteItem(${income.id}, 'income')" 
+                                    class="text-red-500 hover:text-red-700">✕</button>
                         </div>
-                    </li>
-                `;
-            }
-
-            populateMonthFilter() {
-                const allTransactions = [...this.allIncomes, ...this.allExpenses];
-                const months = new Set();
-                
-                allTransactions.forEach(t => {
-                    const date = new Date(t.timestamp);
-                    const month = date.getMonth() + 1;
-                    const year = date.getFullYear();
-                    months.add(`${String(month).padStart(2, '0')}-${year}`);
-                });
-
-                const sortedMonths = Array.from(months).sort((a, b) => {
-                    const [m1, y1] = a.split('-').map(Number);
-                    const [m2, y2] = b.split('-').map(Number);
-                    return (y2 * 12 + m2) - (y1 * 12 + m1);
-                });
-
-                const monthNames = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", 
-                                  "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
-
-                let optionsHTML = `<option value="all">📅 Todos los meses</option>`;
-                
-                sortedMonths.forEach(value => {
-                    const [monthNum, year] = value.split('-').map(Number);
-                    const label = `${monthNames[monthNum - 1]} ${year}`;
-                    optionsHTML += `<option value="${value}">${label}</option>`;
-                });
-
-                document.getElementById('month-filter').innerHTML = optionsHTML;
-            }
-
-            filterAndRenderData() {
-                const selectedValue = document.getElementById('month-filter').value;
-                let totalIncome = 0;
-                let totalExpense = 0;
-
-                // Filtrar datos
-                this.currentIncomes = this.allIncomes.filter(income => {
-                    if (selectedValue === 'all') return true;
-                    const date = new Date(income.timestamp);
-                    const month = date.getMonth() + 1;
-                    const year = date.getFullYear();
-                    return `${String(month).padStart(2, '0')}-${year}` === selectedValue;
-                });
-
-                this.currentExpenses = this.allExpenses.filter(expense => {
-                    if (selectedValue === 'all') return true;
-                    const date = new Date(expense.timestamp);
-                    const month = date.getMonth() + 1;
-                    const year = date.getFullYear();
-                    return `${String(month).padStart(2, '0')}-${year}` === selectedValue;
-                });
-
-                // Renderizar ingresos
-                const incomeList = document.getElementById('income-list');
-                if (this.currentIncomes.length === 0) {
-                    incomeList.innerHTML = `
-                        <li class="text-center py-8 text-gray-400">
-                            <div class="text-4xl mb-2">💰</div>
-                            <p class="text-sm">No hay ingresos registrados</p>
-                        </li>
-                    `;
-                } else {
-                    incomeList.innerHTML = this.currentIncomes
-                        .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
-                        .map(income => {
-                            totalIncome += income.amount;
-                            return this.renderTransactionItem(income, 'income');
-                        })
-                        .join('');
-                }
-
-                // Renderizar gastos
-                const expenseList = document.getElementById('expense-list');
-                if (this.currentExpenses.length === 0) {
-                    expenseList.innerHTML = `
-                        <li class="text-center py-8 text-gray-400">
-                            <div class="text-4xl mb-2">💸</div>
-                            <p class="text-sm">No hay gastos registrados</p>
-                        </li>
-                    `;
-                } else {
-                    expenseList.innerHTML = this.currentExpenses
-                        .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
-                        .map(expense => {
-                            totalExpense += expense.amount;
-                            return this.renderTransactionItem(expense, 'expense');
-                        })
-                        .join('');
-                }
-
-                // Actualizar estadísticas
-                document.getElementById('total-income').textContent = this.formatCurrency(totalIncome);
-                document.getElementById('total-expense').textContent = this.formatCurrency(totalExpense);
-                
-                const netBalance = totalIncome - totalExpense;
-                const netBalanceElement = document.getElementById('net-balance');
-                netBalanceElement.textContent = this.formatCurrency(netBalance);
-                
-                if (netBalance > 0) {
-                    netBalanceElement.className = 'text-3xl font-bold text-green-600 mb-2';
-                } else if (netBalance < 0) {
-                    netBalanceElement.className = 'text-3xl font-bold text-red-600 mb-2';
-                } else {
-                    netBalanceElement.className = 'text-3xl font-bold text-gray-600 mb-2';
-                }
-
-                // Actualizar contadores
-                document.getElementById('income-count').textContent = `${this.currentIncomes.length} registros`;
-                document.getElementById('expense-count').textContent = `${this.currentExpenses.length} registros`;
-            }
-
-            // ===== FUNCIONALIDADES EXTRA =====
-            async analyzeFinancesWithGemini() {
-                if (this.currentIncomes.length === 0 && this.currentExpenses.length === 0) {
-                    this.showMessage('No hay datos para analizar', 'warning');
-                    return;
-                }
-
-                const analyzeButton = document.getElementById('analyze-button');
-                const analysisResult = document.getElementById('analysis-result');
-
-                analyzeButton.disabled = true;
-                analyzeButton.textContent = '🔄 Analizando...';
-                analysisResult.innerHTML = `
-                    <div class="text-center py-4">
-                        <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-purple-600 mx-auto"></div>
-                        <p class="text-gray-500 mt-2">Generando análisis con IA...</p>
                     </div>
-                `;
-
-                const totalIncome = this.currentIncomes.reduce((sum, item) => sum + item.amount, 0);
-                const totalExpense = this.currentExpenses.reduce((sum, item) => sum + item.amount, 0);
-                const balance = totalIncome - totalExpense;
-
-                try {
-                    const apiKey = "AIzaSyAiRIs1hTzS4ABu-ykWVqoP2wmlGHh3gEs";
-                    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${apiKey}`;
-                    
-                    const prompt = `Como experto financiero, analiza estas finanzas en Soles Peruanos:
-
-INGRESOS: S/ ${totalIncome.toFixed(2)} (${this.currentIncomes.length} transacciones)
-GASTOS: S/ ${totalExpense.toFixed(2)} (${this.currentExpenses.length} transacciones)
-BALANCE: S/ ${balance.toFixed(2)}
-
-Proporciona un análisis breve de 2-3 frases con recomendaciones prácticas. Responde en español.`;
-
-                    const response = await fetch(apiUrl, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            contents: [{ parts: [{ text: prompt }] }]
-                        })
-                    });
-
-                    const data = await response.json();
-                    const text = data.candidates?.[0]?.content?.parts?.[0]?.text || 'No se pudo generar el análisis.';
-
-                    analysisResult.innerHTML = `
-                        <div class="bg-purple-50 border border-purple-200 rounded-lg p-4">
-                            <div class="text-purple-800 whitespace-pre-wrap text-sm">${text}</div>
-                        </div>
-                    `;
-
-                } catch (error) {
-                    console.error('Error con Gemini:', error);
-                    analysisResult.innerHTML = `
-                        <div class="text-center text-red-500 py-4">
-                            <p>Error al conectar con el servicio de IA</p>
-                            <p class="text-sm mt-1">Intenta de nuevo más tarde</p>
-                        </div>
-                    `;
-                } finally {
-                    analyzeButton.disabled = false;
-                    analyzeButton.textContent = '🤖 Generar Análisis con IA';
-                }
+                `).join('');
             }
 
-            exportToCSV() {
-                const dataToExport = [...this.currentIncomes, ...this.currentExpenses];
-                if (dataToExport.length === 0) {
-                    this.showMessage('No hay datos para exportar', 'warning');
-                    return;
-                }
+            // Actualizar lista de gastos
+            const expenseList = document.getElementById('expense-list');
+            if (expenses.length === 0) {
+                expenseList.innerHTML = '<p class="text-gray-500 text-center">No hay gastos</p>';
+            } else {
+                expenseList.innerHTML = expenses.map(expense => `
+                    <div class="flex justify-between items-center p-3 bg-red-50 rounded border">
+                        <div>
+                            <div class="font-medium">${expense.desc}</div>
+                            <div class="text-sm text-gray-600">${expense.date}</div>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="font-bold text-red-600">S/ ${expense.amount.toFixed(2)}</span>
+                            <button onclick="deleteItem(${expense.id}, 'expense')" 
+                                    class="text-red-500 hover:text-red-700">✕</button>
+                        </div>
+                    </div>
+                `).join('');
+            }
+        }
+    </script>
+</body>
+</html><!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Control Financiero</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 min-h-screen p-4">
+    <div class="max-w-4xl mx-auto">
+        <h1 class="text-3xl font-bold text-center mb-8">💰 Mis Finanzas</h1>
 
-                const headers = ['Tipo', 'Descripción', 'Monto (S/)', 'Categoría', 'Fecha'];
-                const rows = dataToExport.map(item => [
-                    item.type === 'income' ? 'Ingreso' : 'Gasto',
-                    `"${item.name.replace(/"/g, '""')}"`,
-                    item.amount.toFixed(2),
-                    item.category,
-                    new Date(item.timestamp).toLocaleDateString('es-PE')
-                ]);
+        <!-- Formularios -->
+        <div class="grid md:grid-cols-2 gap-6 mb-8">
+            <!-- Ingreso -->
+            <div class="bg-white p-6 rounded-lg shadow">
+                <h2 class="text-xl font-semibold mb-4">➕ Agregar Ingreso</h2>
+                <input type="text" id="income-desc" placeholder="Descripción" class="w-full p-2 border rounded mb-2">
+                <input type="number" id="income-amount" placeholder="Monto" class="w-full p-2 border rounded mb-4">
+                <button onclick="addIncome()" class="w-full bg-green-500 text-white p-2 rounded hover:bg-green-600">
+                    Agregar Ingreso
+                </button>
+            </div>
 
-                const csvContent = [headers, ...rows].map(row => row.join(',')).join('\n');
-                const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
-                const link = document.createElement('a');
-                const url = URL.createObjectURL(blob);
-                
-                link.setAttribute('href', url);
-                link.setAttribute('download', `finanzas_${new Date().toISOString().split('T')[0]}.csv`);
-                link.style.visibility = 'hidden';
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-                
-                this.showMessage('Datos exportados correctamente a CSV', 'success');
+            <!-- Gasto -->
+            <div class="bg-white p-6 rounded-lg shadow">
+                <h2 class="text-xl font-semibold mb-4">➖ Agregar Gasto</h2>
+                <input type="text" id="expense-desc" placeholder="Descripción" class="w-full p-2 border rounded mb-2">
+                <input type="number" id="expense-amount" placeholder="Monto" class="w-full p-2 border rounded mb-4">
+                <button onclick="addExpense()" class="w-full bg-red-500 text-white p-2 rounded hover:bg-red-600">
+                    Agregar Gasto
+                </button>
+            </div>
+        </div>
+
+        <!-- Estadísticas -->
+        <div class="grid grid-cols-3 gap-4 mb-8">
+            <div class="bg-white p-4 rounded-lg shadow text-center">
+                <div class="text-2xl font-bold text-green-600" id="total-income">S/ 0</div>
+                <div class="text-sm text-gray-600">Total Ingresos</div>
+            </div>
+            <div class="bg-white p-4 rounded-lg shadow text-center">
+                <div class="text-2xl font-bold text-red-600" id="total-expense">S/ 0</div>
+                <div class="text-sm text-gray-600">Total Gastos</div>
+            </div>
+            <div class="bg-white p-4 rounded-lg shadow text-center">
+                <div class="text-2xl font-bold text-blue-600" id="balance">S/ 0</div>
+                <div class="text-sm text-gray-600">Balance</div>
+            </div>
+        </div>
+
+        <!-- Listas -->
+        <div class="grid md:grid-cols-2 gap-6">
+            <!-- Ingresos -->
+            <div class="bg-white p-6 rounded-lg shadow">
+                <h2 class="text-xl font-semibold mb-4">📥 Ingresos</h2>
+                <div id="income-list" class="space-y-2">
+                    <!-- Los ingresos aparecerán aquí -->
+                </div>
+            </div>
+
+            <!-- Gastos -->
+            <div class="bg-white p-6 rounded-lg shadow">
+                <h2 class="text-xl font-semibold mb-4">📤 Gastos</h2>
+                <div id="expense-list" class="space-y-2">
+                    <!-- Los gastos aparecerán aquí -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Datos en memoria (simples)
+        let incomes = JSON.parse(localStorage.getItem('incomes')) || [];
+        let expenses = JSON.parse(localStorage.getItem('expenses')) || [];
+
+        // Cargar datos al iniciar
+        window.addEventListener('load', function() {
+            updateDisplay();
+        });
+
+        // Función para agregar ingreso
+        function addIncome() {
+            const desc = document.getElementById('income-desc').value;
+            const amount = parseFloat(document.getElementById('income-amount').value);
+
+            if (!desc || !amount) {
+                alert('Por favor completa todos los campos');
+                return;
             }
 
-            // ===== EVENT LISTENERS =====
-            setupEventListeners() {
-                // Agregar transacciones
-                document.getElementById('add-income-btn').addEventListener('click', () => {
-                    const name = document.getElementById('income-name').value;
-                    const amount = document.getElementById('income-amount').value;
-                    const category = document.getElementById('income-category').value;
-                    
-                    if (this.addTransaction(name, amount, category, 'income')) {
-                        document.getElementById('income-name').value = '';
-                        document.getElementById('income-amount').value = '';
-                    }
-                });
+            const income = {
+                id: Date.now(),
+                desc: desc,
+                amount: amount,
+                date: new Date().toLocaleDateString()
+            };
 
-                document.getElementById('add-expense-btn').addEventListener('click', () => {
-                    const name = document.getElementById('expense-name').value;
-                    const amount = document.getElementById('expense-amount').value;
-                    const category = document.getElementById('expense-category').value;
-                    
-                    if (this.addTransaction(name, amount, category, 'expense')) {
-                        document.getElementById('expense-name').value = '';
-                        document.getElementById('expense-amount').value = '';
-                    }
-                });
+            incomes.push(income);
+            saveData();
+            updateDisplay();
+            
+            // Limpiar campos
+            document.getElementById('income-desc').value = '';
+            document.getElementById('income-amount').value = '';
+        }
 
-                // Enter key support
-                [
+        // Función para agregar gasto
+        function addExpense() {
+            const desc = document.getElementById('expense-desc').value;
+            const amount = parseFloat(document.getElementById('expense-amount').value);
+
+            if (!desc || !amount) {
+                alert('Por favor completa todos los campos');
+                return;
+            }
+
+            const expense = {
+                id: Date.now(),
+                desc: desc,
+                amount: amount,
+                date: new Date().toLocaleDateString()
+            };
+
+            expenses.push(expense);
+            saveData();
+            updateDisplay();
+            
+            // Limpiar campos
+            document.getElementById('expense-desc').value = '';
+            document.getElementById('expense-amount').value = '';
+        }
+
+        // Función para eliminar (SIMPLE Y FUNCIONAL)
+        function deleteItem(id, type) {
+            if (confirm('¿Estás seguro de eliminar?')) {
+                if (type === 'income') {
+                    incomes = incomes.filter(income => income.id !== id);
+                } else {
+                    expenses = expenses.filter(expense => expense.id !== id);
+                }
+                saveData();
+                updateDisplay();
+            }
+        }
+
+        // Guardar datos en localStorage
+        function saveData() {
+            localStorage.setItem('incomes', JSON.stringify(incomes));
+            localStorage.setItem('expenses', JSON.stringify(expenses));
+        }
+
+        // Actualizar la visualización
+        function updateDisplay() {
+            // Actualizar estadísticas
+            const totalIncome = incomes.reduce((sum, item) => sum + item.amount, 0);
+            const totalExpense = expenses.reduce((sum, item) => sum + item.amount, 0);
+            const balance = totalIncome - totalExpense;
+
+            document.getElementById('total-income').textContent = `S/ ${totalIncome.toFixed(2)}`;
+            document.getElementById('total-expense').textContent = `S/ ${totalExpense.toFixed(2)}`;
+            document.getElementById('balance').textContent = `S/ ${balance.toFixed(2)}`;
+
+            // Actualizar lista de ingresos
+            const incomeList = document.getElementById('income-list');
+            if (incomes.length === 0) {
+                incomeList.innerHTML = '<p class="text-gray-500 text-center">No hay ingresos</p>';
+            } else {
+                incomeList.innerHTML = incomes.map(income => `
+                    <div class="flex justify-between items-center p-3 bg-green-50 rounded border">
+                        <div>
+                            <div class="font-medium">${income.desc}</div>
+                            <div class="text-sm text-gray-600">${income.date}</div>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="font-bold text-green-600">S/ ${income.amount.toFixed(2)}</span>
+                            <button onclick="deleteItem(${income.id}, 'income')" 
+                                    class="text-red-500 hover:text-red-700">✕</button>
+                        </div>
+                    </div>
+                `).join('');
+            }
+
+            // Actualizar lista de gastos
+            const expenseList = document.getElementById('expense-list');
+            if (expenses.length === 0) {
+                expenseList.innerHTML = '<p class="text-gray-500 text-center">No hay gastos</p>';
+            } else {
+                expenseList.innerHTML = expenses.map(expense => `
+                    <div class="flex justify-between items-center p-3 bg-red-50 rounded border">
+                        <div>
+                            <div class="font-medium">${expense.desc}</div>
+                            <div class="text-sm text-gray-600">${expense.date}</div>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="font-bold text-red-600">S/ ${expense.amount.toFixed(2)}</span>
+                            <button onclick="deleteItem(${expense.id}, 'expense')" 
+                                    class="text-red-500 hover:text-red-700">✕</button>
+                        </div>
+                    </div>
+                `).join('');
+            }
+        }
+    </script>
+</body>
+</html>
