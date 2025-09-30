@@ -1,450 +1,701 @@
-<script>
-    // --- CONFIGURACIÓN SIMPLIFICADA SIN FIREBASE ---
-       
-    // Variables globales
-    let userId = 'usuario-demo-' + Math.random().toString(36).substr(2, 9);
-    let allIncomes = [];
-    let allExpenses = [];
-    let currentIncomes = [];
-    let currentExpenses = [];
-
-    // Referencias de elementos
-    const elements = {
-        incomeName: document.getElementById('income-name'),
-        incomeAmount: document.getElementById('income-amount'),
-        expenseName: document.getElementById('expense-name'),
-        expenseAmount: document.getElementById('expense-amount'),
-        totalIncome: document.getElementById('total-income'),
-        totalExpense: document.getElementById('total-expense'),
-        netBalance: document.getElementById('net-balance'),
-        incomeList: document.getElementById('income-list'),
-        expenseList: document.getElementById('expense-list'),
-        userIdDisplay: document.getElementById('user-id-display'),
-        messageBox: document.getElementById('message-box'),
-        monthFilter: document.getElementById('month-filter'),
-        analyzeButton: document.getElementById('analyze-button'),
-        analysisResult: document.getElementById('analysis-result'),
-        incomeCount: document.getElementById('income-count'),
-        expenseCount: document.getElementById('expense-count'),
-        addIncomeBtn: document.getElementById('add-income-btn'),
-        addExpenseBtn: document.getElementById('add-expense-btn'),
-        exportBtn: document.getElementById('export-btn')
-    };
-
-    // Utilidades
-    function showMessage(message, type = 'error') {
-        const icon = type === 'success' ? '✅' : type === 'warning' ? '⚠️' : '❌';
-        const bgColor = type === 'success' ? 'bg-green-50' : type === 'warning' ? 'bg-yellow-50' : 'bg-red-50';
-        const textColor = type === 'success' ? 'text-green-800' : type === 'warning' ? 'text-yellow-800' : 'text-red-800';
-        const borderColor = type === 'success' ? 'border-green-200' : type === 'warning' ? 'border-yellow-200' : 'border-red-200';
-           
-        elements.messageBox.innerHTML = `
-            <div class="flex items-center justify-between p-4 rounded-lg ${bgColor} ${textColor} border ${borderColor}">
-                <div class="flex items-center">
-                    <span class="text-lg mr-3">${icon}</span>
-                    <span class="font-medium">${message}</span>
-                </div>
-                <button onclick="this.parentElement.parentElement.classList.add('hidden')" 
-                        class="text-gray-400 hover:text-gray-600">
-                    ✕
-                </button>
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Control de Ingresos y Gastos</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>💰</text></svg>">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        .list-container {
+            max-height: 300px;
+            overflow-y: auto;
+            scrollbar-width: thin;
+            scrollbar-color: #cbd5e0 transparent;
+        }
+        .list-container::-webkit-scrollbar {
+            width: 6px;
+        }
+        .list-container::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .list-container::-webkit-scrollbar-thumb {
+            background-color: #cbd5e0;
+            border-radius: 3px;
+        }
+        .stat-card {
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        .stat-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        }
+    </style>
+</head>
+<body class="min-h-screen py-8 px-4">
+    <div class="max-w-6xl mx-auto">
+        <!-- Header -->
+        <div class="glass-card rounded-2xl p-8 mb-8 text-center">
+            <h1 class="text-4xl font-bold text-gray-800 mb-2">
+                💰 Control Financiero Personal
+            </h1>
+            <p class="text-gray-600 mb-4">Gestiona tus ingresos y gastos en Soles Peruanos</p>
+            <div class="flex items-center justify-center space-x-4 text-sm text-gray-500">
+                <span id="user-id-display" class="bg-green-100 text-green-700 px-3 py-1 rounded-full">
+                    ✅ Conectado
+                </span>
+                <span class="bg-green-100 text-green-700 px-3 py-1 rounded-full">
+                    💳 Soles (PEN)
+                </span>
             </div>
-        `;
-        elements.messageBox.classList.remove('hidden');
-        setTimeout(() => {
-            elements.messageBox.classList.add('hidden');
-        }, 5000);
-    }
+        </div>
 
-    function formatCurrency(amount) {
-        return new Intl.NumberFormat('es-PE', {
-            style: 'currency',
-            currency: 'PEN'
-        }).format(amount);
-    }
+        <!-- Message Box -->
+        <div id="message-box" class="hidden mb-6"></div>
 
-    // Lógica principal
-    function handleDataChange() {
-        const selectedValue = elements.monthFilter.value;
-        let totalIncome = 0;
-        let totalExpenses = 0;
-
-        currentIncomes = [];
-        currentExpenses = [];
-
-        // Procesar ingresos
-        elements.incomeList.innerHTML = '';
-        const filteredIncomes = selectedValue === 'all' ? allIncomes : 
-            allIncomes.filter(income => {
-                const date = new Date(income.timestamp);
-                const month = date.getMonth() + 1;
-                const year = date.getFullYear();
-                return `${String(month).padStart(2, '0')}-${year}` === selectedValue;
-            });
-            
-        filteredIncomes.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)); // Ordenar por fecha
-
-        if (filteredIncomes.length === 0) {
-            elements.incomeList.innerHTML = `
-                <div class="text-center py-8 text-gray-400">
-                    <div class="text-4xl mb-2">💰</div>
-                    <p class="text-sm">No hay ingresos registrados</p>
+        <!-- Stats Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <div class="stat-card bg-white rounded-2xl p-6 shadow-lg border border-green-200">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wide">Total Ingresos</h3>
+                    <span class="text-2xl">📥</span>
                 </div>
-            `;
-        } else {
-            filteredIncomes.forEach(income => {
-                totalIncome += income.amount;
-                currentIncomes.push(income);
-                
-                const li = document.createElement('li');
-                li.className = 'flex justify-between items-center p-4 bg-green-50 border border-green-200 rounded-lg mb-3 transition-all duration-200 hover:scale-[1.02]';
-                li.innerHTML = `
-                    <div class="flex-1">
-                        <div class="flex items-center justify-between">
-                            <span class="font-semibold text-gray-800">${income.name}</span>
-                            <span class="text-lg font-bold text-green-600">
-                                ${formatCurrency(income.amount)}
-                            </span>
-                        </div>
-                        <div class="flex items-center justify-between mt-2">
-                            <span class="text-xs text-gray-500">${new Date(income.timestamp).toLocaleDateString('es-PE')}</span>
-                            <button data-id="${income.id}" data-type="income" 
-                                    class="delete-btn text-gray-400 hover:text-red-500 transition-colors duration-200 p-1 rounded"
-                                    title="Eliminar">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
-                                </svg>
-                            </button>
-                        </div>
-                    </div>
-                `;
-                elements.incomeList.appendChild(li);
-            });
-        }
+                <div class="text-3xl font-bold text-green-600 mb-2" id="total-income">S/ 0.00</div>
+                <div class="text-xs text-gray-500">Ingresos del periodo seleccionado</div>
+            </div>
 
-        // Procesar gastos
-        elements.expenseList.innerHTML = '';
-        const filteredExpenses = selectedValue === 'all' ? allExpenses : 
-            allExpenses.filter(expense => {
-                const date = new Date(expense.timestamp);
-                const month = date.getMonth() + 1;
-                const year = date.getFullYear();
-                return `${String(month).padStart(2, '0')}-${year}` === selectedValue;
-            });
-            
-        filteredExpenses.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)); // Ordenar por fecha
-
-        if (filteredExpenses.length === 0) {
-            elements.expenseList.innerHTML = `
-                <div class="text-center py-8 text-gray-400">
-                    <div class="text-4xl mb-2">💸</div>
-                    <p class="text-sm">No hay gastos registrados</p>
+            <div class="stat-card bg-white rounded-2xl p-6 shadow-lg border border-red-200">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wide">Total Gastos</h3>
+                    <span class="text-2xl">📤</span>
                 </div>
-            `;
-        } else {
-            filteredExpenses.forEach(expense => {
-                totalExpenses += expense.amount;
-                currentExpenses.push(expense);
-                
-                const li = document.createElement('li');
-                li.className = 'flex justify-between items-center p-4 bg-red-50 border border-red-200 rounded-lg mb-3 transition-all duration-200 hover:scale-[1.02]';
-                li.innerHTML = `
-                    <div class="flex-1">
-                        <div class="flex items-center justify-between">
-                            <span class="font-semibold text-gray-800">${expense.name}</span>
-                            <span class="text-lg font-bold text-red-600">
-                                ${formatCurrency(expense.amount)}
-                            </span>
-                        </div>
-                        <div class="flex items-center justify-between mt-2">
-                            <span class="text-xs text-gray-500">${new Date(expense.timestamp).toLocaleDateString('es-PE')}</span>
-                            <button data-id="${expense.id}" data-type="expense" 
-                                    class="delete-btn text-gray-400 hover:text-red-500 transition-colors duration-200 p-1 rounded"
-                                    title="Eliminar">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
-                                </svg>
-                            </button>
-                        </div>
+                <div class="text-3xl font-bold text-red-600 mb-2" id="total-expense">S/ 0.00</div>
+                <div class="text-xs text-gray-500">Gastos del periodo seleccionado</div>
+            </div>
+
+            <div class="stat-card bg-white rounded-2xl p-6 shadow-lg border border-indigo-200">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wide">Balance Neto</h3>
+                    <span class="text-2xl">⚖️</span>
+                </div>
+                <div class="text-3xl font-bold text-gray-600 mb-2" id="net-balance">S/ 0.00</div>
+                <div class="text-xs text-gray-500">Resultado financiero neto</div>
+            </div>
+        </div>
+
+        <!-- Filtro -->
+        <div class="glass-card rounded-2xl p-6 mb-8">
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div>
+                    <h3 class="text-lg font-semibold text-gray-800 mb-1">📊 Filtro de Periodo</h3>
+                    <p class="text-sm text-gray-600">Selecciona el mes que deseas visualizar</p>
+                </div>
+                <select id="month-filter" 
+                        class="bg-white border border-gray-300 rounded-xl px-4 py-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 min-w-[200px]">
+                    <option value="all">Cargando meses...</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Formularios -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+            <!-- Ingresos -->
+            <div class="glass-card rounded-2xl p-6 border border-green-200">
+                <div class="flex items-center mb-6">
+                    <div class="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center mr-3">
+                        <span class="text-xl">💹</span>
                     </div>
-                `;
-                elements.expenseList.appendChild(li);
-            });
-        }
+                    <div>
+                        <h3 class="text-xl font-semibold text-gray-800">Agregar Ingreso</h3>
+                        <p class="text-sm text-gray-600">Registra nuevos ingresos</p>
+                    </div>
+                </div>
+                
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Descripción</label>
+                        <input type="text" id="income-name" placeholder="Ej: Salario, Ventas, Bonificación"
+                               class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Monto (S/)</label>
+                        <input type="number" id="income-amount" placeholder="0.00" step="0.01" min="0.01"
+                               class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500">
+                    </div>
+                    <button id="add-income-btn"
+                            class="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-4 rounded-xl transition-colors duration-200 flex items-center justify-center">
+                        <span class="mr-2">➕</span> Agregar Ingreso
+                    </button>
+                </div>
+            </div>
 
-        // Actualizar estadísticas
-        elements.totalIncome.textContent = formatCurrency(totalIncome);
-        elements.totalExpense.textContent = formatCurrency(totalExpenses);
-        elements.netBalance.textContent = formatCurrency(totalIncome - totalExpenses);
+            <!-- Gastos -->
+            <div class="glass-card rounded-2xl p-6 border border-red-200">
+                <div class="flex items-center mb-6">
+                    <div class="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center mr-3">
+                        <span class="text-xl">📉</span>
+                    </div>
+                    <div>
+                        <h3 class="text-xl font-semibold text-gray-800">Agregar Gasto</h3>
+                        <p class="text-sm text-gray-600">Registra nuevos gastos</p>
+                    </div>
+                </div>
+                
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Descripción</label>
+                        <input type="text" id="expense-name" placeholder="Ej: Alquiler, Comida, Transporte"
+                               class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-red-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Monto (S/)</label>
+                        <input type="number" id="expense-amount" placeholder="0.00" step="0.01" min="0.01"
+                               class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-red-500">
+                    </div>
+                    <button id="add-expense-btn"
+                            class="w-full bg-red-600 hover:bg-red-700 text-white font-semibold py-3 px-4 rounded-xl transition-colors duration-200 flex items-center justify-center">
+                        <span class="mr-2">➖</span> Agregar Gasto
+                    </button>
+                </div>
+            </div>
+        </div>
 
-        // Actualizar contadores
-        elements.incomeCount.textContent = `${filteredIncomes.length} registros`;
-        elements.expenseCount.textContent = `${filteredExpenses.length} registros`;
+        <!-- Herramientas Adicionales -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+            <!-- Análisis IA -->
+            <div class="glass-card rounded-2xl p-6 border border-indigo-200">
+                <div class="flex items-center mb-6">
+                    <div class="w-10 h-10 bg-indigo-100 rounded-lg flex items-center justify-center mr-3">
+                        <span class="text-xl">🤖</span>
+                    </div>
+                    <div>
+                        <h3 class="text-xl font-semibold text-gray-800">Análisis con IA</h3>
+                        <p class="text-sm text-gray-600">Obtén insights inteligentes</p>
+                    </div>
+                </div>
+                
+                <button id="analyze-button"
+                        class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-4 rounded-xl transition-colors duration-200 mb-4">
+                    🤖 Generar Análisis con IA
+                </button>
+                
+                <div id="analysis-result" class="bg-gray-50 rounded-xl p-4 min-h-[120px]">
+                    <p class="text-gray-500 text-center italic py-4">
+                        Haz clic en el botón para obtener un análisis inteligente de tus finanzas
+                    </p>
+                </div>
+            </div>
 
-        // Actualizar estilo del balance neto
-        const balance = totalIncome - totalExpenses;
-        if (balance > 0) {
-            elements.netBalance.className = 'text-3xl font-bold text-green-600';
-        } else if (balance < 0) {
-            elements.netBalance.className = 'text-3xl font-bold text-red-600';
-        } else {
-            elements.netBalance.className = 'text-3xl font-bold text-gray-600';
-        }
+            <!-- Exportar -->
+            <div class="glass-card rounded-2xl p-6 border border-gray-200">
+                <div class="flex items-center mb-6">
+                    <div class="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center mr-3">
+                        <span class="text-xl">💾</span>
+                    </div>
+                    <div>
+                        <h3 class="text-xl font-semibold text-gray-800">Exportar Datos</h3>
+                        <p class="text-sm text-gray-600">Guarda tu información</p>
+                    </div>
+                </div>
+                
+                <div class="space-y-3">
+                    <button id="export-btn"
+                            class="w-full bg-gray-600 hover:bg-gray-700 text-white font-semibold py-3 px-4 rounded-xl transition-colors duration-200 flex items-center justify-center">
+                        <span class="mr-2">📥</span> Descargar CSV
+                    </button>
+                    <p class="text-xs text-gray-500 text-center">
+                        Exporta tus transacciones a formato CSV compatible con Excel
+                    </p>
+                </div>
+            </div>
+        </div>
 
-        // Agregar event listeners a los botones de eliminar
-        setupDeleteButtons();
-    }
+        <!-- Historial -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <!-- Ingresos -->
+            <div class="glass-card rounded-2xl p-6 border border-green-200">
+                <div class="flex items-center justify-between mb-6">
+                    <h3 class="text-xl font-semibold text-gray-800">📥 Historial de Ingresos</h3>
+                    <span id="income-count" class="bg-green-100 text-green-700 px-3 py-1 rounded-full text-sm font-medium">
+                        0 registros
+                    </span>
+                </div>
+                <ul id="income-list" class="list-container space-y-3">
+                    <li class="text-center py-8 text-gray-400">
+                        <div class="text-4xl mb-2">💰</div>
+                        <p>No hay ingresos registrados</p>
+                    </li>
+                </ul>
+            </div>
 
-    // Poblar filtro de meses
-    function populateMonthFilter() {
-        const today = new Date();
-        const currentMonth = today.getMonth();
-        const currentYear = today.getFullYear();
-        const monthNames = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", 
-                          "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+            <!-- Gastos -->
+            <div class="glass-card rounded-2xl p-6 border border-red-200">
+                <div class="flex items-center justify-between mb-6">
+                    <h3 class="text-xl font-semibold text-gray-800">📤 Historial de Gastos</h3>
+                    <span id="expense-count" class="bg-red-100 text-red-700 px-3 py-1 rounded-full text-sm font-medium">
+                        0 registros
+                    </span>
+                </div>
+                <ul id="expense-list" class="list-container space-y-3">
+                    <li class="text-center py-8 text-gray-400">
+                        <div class="text-4xl mb-2">💸</div>
+                        <p>No hay gastos registrados</p>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
 
-        let optionsHTML = `<option value="all">📅 Todos los meses</option>`;
-
-        for (let i = 0; i < 12; i++) {
-            // Calcula el mes y año retrocediendo i meses
-            let date = new Date(currentYear, currentMonth - i, 1);
-            const month = date.getMonth();
-            const year = date.getFullYear();
-            const value = `${String(month + 1).padStart(2, '0')}-${year}`;
-            const label = `${monthNames[month]} ${year}`;
-            const emoji = i === 0 ? '🎯' : i < 3 ? '📊' : '📅';
-            
-            optionsHTML += `<option value="${value}" ${i === 0 ? 'selected' : ''}>${emoji} ${label}</option>`;
-        }
+    <script>
+        // --- CONFIGURACIÓN SIMPLIFICADA SIN FIREBASE ---
            
-        elements.monthFilter.innerHTML = optionsHTML;
-    }
+        // Variables globales
+        let userId = 'usuario-demo-' + Math.random().toString(36).substr(2, 9);
+        let allIncomes = [];
+        let allExpenses = [];
+        let currentIncomes = [];
+        let currentExpenses = [];
 
-    // Funciones CRUD
-    function addTransaction(name, amount, type) {
-        if (!name || isNaN(amount) || amount <= 0) {
-            showMessage("Por favor, ingresa un nombre y cantidad válida (mayor a 0)");
-            return;
-        }
-
-        const transaction = {
-            id: Date.now().toString() + Math.random().toString(36).substr(2, 5),
-            name: name.trim(),
-            amount: parseFloat(amount),
-            timestamp: new Date().toISOString()
+        // Referencias de elementos
+        const elements = {
+            incomeName: document.getElementById('income-name'),
+            incomeAmount: document.getElementById('income-amount'),
+            expenseName: document.getElementById('expense-name'),
+            expenseAmount: document.getElementById('expense-amount'),
+            totalIncome: document.getElementById('total-income'),
+            totalExpense: document.getElementById('total-expense'),
+            netBalance: document.getElementById('net-balance'),
+            incomeList: document.getElementById('income-list'),
+            expenseList: document.getElementById('expense-list'),
+            userIdDisplay: document.getElementById('user-id-display'),
+            messageBox: document.getElementById('message-box'),
+            monthFilter: document.getElementById('month-filter'),
+            analyzeButton: document.getElementById('analyze-button'),
+            analysisResult: document.getElementById('analysis-result'),
+            incomeCount: document.getElementById('income-count'),
+            expenseCount: document.getElementById('expense-count'),
+            addIncomeBtn: document.getElementById('add-income-btn'),
+            addExpenseBtn: document.getElementById('add-expense-btn'),
+            exportBtn: document.getElementById('export-btn')
         };
 
-        if (type === 'income') {
-            allIncomes.push(transaction);
-            elements.incomeName.value = '';
-            elements.incomeAmount.value = '';
-            showMessage('Ingreso registrado exitosamente', 'success');
-        } else {
-            allExpenses.push(transaction);
-            elements.expenseName.value = '';
-            elements.expenseAmount.value = '';
-            showMessage('Gasto registrado exitosamente', 'success');
+        // Utilidades
+        function showMessage(message, type = 'error') {
+            const icon = type === 'success' ? '✅' : type === 'warning' ? '⚠️' : '❌';
+            const bgColor = type === 'success' ? 'bg-green-50' : type === 'warning' ? 'bg-yellow-50' : 'bg-red-50';
+            const textColor = type === 'success' ? 'text-green-800' : type === 'warning' ? 'text-yellow-800' : 'text-red-800';
+            const borderColor = type === 'success' ? 'border-green-200' : type === 'warning' ? 'border-yellow-200' : 'border-red-200';
+               
+            elements.messageBox.innerHTML = `
+                <div class="flex items-center justify-between p-4 rounded-lg ${bgColor} ${textColor} border ${borderColor}">
+                    <div class="flex items-center">
+                        <span class="text-lg mr-3">${icon}</span>
+                        <span class="font-medium">${message}</span>
+                    </div>
+                    <button onclick="this.parentElement.parentElement.classList.add('hidden')" 
+                            class="text-gray-400 hover:text-gray-600">
+                        ✕
+                    </button>
+                </div>
+            `;
+            elements.messageBox.classList.remove('hidden');
+            setTimeout(() => {
+                elements.messageBox.classList.add('hidden');
+            }, 5000);
         }
 
-        handleDataChange();
-    }
-
-    function deleteTransaction(id, type) {
-        if (type === 'income') {
-            allIncomes = allIncomes.filter(income => income.id !== id);
-            showMessage('Ingreso eliminado', 'success');
-        } else {
-            allExpenses = allExpenses.filter(expense => expense.id !== id);
-            showMessage('Gasto eliminado', 'success');
+        function formatCurrency(amount) {
+            return new Intl.NumberFormat('es-PE', {
+                style: 'currency',
+                currency: 'PEN'
+            }).format(amount);
         }
-        handleDataChange();
-    }
 
-    // Configurar botones de eliminar
-    function setupDeleteButtons() {
-        const deleteButtons = document.querySelectorAll('.delete-btn');
-        deleteButtons.forEach(button => {
-            button.addEventListener('click', function() {
-                const id = this.getAttribute('data-id');
-                const type = this.getAttribute('data-type');
-                deleteTransaction(id, type);
-            });
-        });
-    }
+        // Lógica principal
+        function handleDataChange() {
+            const selectedValue = elements.monthFilter.value;
+            let totalIncome = 0;
+            let totalExpenses = 0;
 
-    // Funciones adicionales
-    function analyzeFinancesWithGemini() {
-        elements.analyzeButton.disabled = true;
-        elements.analyzeButton.innerHTML = '🔄 Analizando...';
-        elements.analysisResult.innerHTML = `
-            <div class="text-center py-8">
-                <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mx-auto mb-4"></div>
-                <p class="text-gray-500">Generando análisis con IA...</p>
-            </div>
-        `;
+            currentIncomes = [];
+            currentExpenses = [];
 
-        setTimeout(() => {
-            // Extraer montos numéricos
-            const totalIncomeText = elements.totalIncome.textContent.replace('S/', '').replace(',', '').trim();
-            const totalExpenseText = elements.totalExpense.textContent.replace('S/', '').replace(',', '').trim();
+            // Procesar ingresos
+            elements.incomeList.innerHTML = '';
+            const filteredIncomes = selectedValue === 'all' ? allIncomes : 
+                allIncomes.filter(income => {
+                    const date = new Date(income.timestamp);
+                    const month = date.getMonth() + 1;
+                    const year = date.getFullYear();
+                    return `${String(month).padStart(2, '0')}-${year}` === selectedValue;
+                });
+                
+            filteredIncomes.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)); // Ordenar por fecha
 
-            const totalIncome = parseFloat(totalIncomeText) || 0;
-            const totalExpense = parseFloat(totalExpenseText) || 0;
-            const balance = totalIncome - totalExpense;
-
-            let analysis = '';
-            if (totalIncome === 0 && totalExpense === 0) {
-                analysis = `
-                    <div class="bg-gray-50 border border-gray-200 rounded-lg p-6">
-                        <h4 class="font-semibold text-gray-800 mb-3">🧐 Sin datos para analizar</h4>
-                        <p class="text-gray-700 text-sm">
-                            Por favor, registra algunos ingresos y gastos para que la IA pueda generar un análisis.
-                        </p>
-                    </div>
-                `;
-            } else if (balance > 0) {
-                const percent = totalIncome > 0 ? ((balance / totalIncome) * 100).toFixed(1) : '0.0';
-                analysis = `
-                    <div class="bg-green-50 border border-green-200 rounded-lg p-6">
-                        <h4 class="font-semibold text-green-800 mb-3">🎉 ¡Excelente gestión financiera!</h4>
-                        <p class="text-green-700 text-sm mb-3">
-                            Tienes un superávit de <strong>${formatCurrency(balance)}</strong> este mes. 
-                            Esto representa un <strong>${percent}%</strong> de ahorro sobre tus ingresos.
-                        </p>
-                        <p class="text-green-700 text-sm">
-                            💡 <strong>Consejo:</strong> Considera invertir una parte de este excedente 
-                            para hacer crecer tu patrimonio.
-                        </p>
-                    </div>
-                `;
-            } else if (balance < 0) {
-                const percent = totalIncome > 0 ? ((Math.abs(balance) / totalIncome) * 100).toFixed(1) : '100.0';
-                analysis = `
-                    <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-6">
-                        <h4 class="font-semibold text-yellow-800 mb-3">⚠️ Atención necesaria</h4>
-                        <p class="text-yellow-700 text-sm mb-3">
-                            Tienes un déficit de <strong>${formatCurrency(Math.abs(balance))}</strong> este mes. 
-                            Tus gastos superan tus ingresos en un <strong>${percent}%</strong>.
-                        </p>
-                        <p class="text-yellow-700 text-sm">
-                            💡 <strong>Consejo:</strong> Revisa tus gastos recurrentes y considera 
-                            reducir gastos no esenciales para equilibrar tu presupuesto.
-                        </p>
+            if (filteredIncomes.length === 0) {
+                elements.incomeList.innerHTML = `
+                    <div class="text-center py-8 text-gray-400">
+                        <div class="text-4xl mb-2">💰</div>
+                        <p class="text-sm">No hay ingresos registrados</p>
                     </div>
                 `;
             } else {
-                analysis = `
-                    <div class="bg-blue-50 border border-blue-200 rounded-lg p-6">
-                        <h4 class="font-semibold text-blue-800 mb-3">⚖️ Balance equilibrado</h4>
-                        <p class="text-blue-700 text-sm mb-3">
-                            Tus ingresos y gastos están perfectamente equilibrados este mes. 
-                            No tienes superávit ni déficit.
-                        </p>
-                        <p class="text-blue-700 text-sm">
-                            💡 <strong>Consejo:</strong> Intenta generar un pequeño superávit 
-                            cada mes para crear un fondo de emergencia.
-                        </p>
-                    </div>
-                `;
+                filteredIncomes.forEach(income => {
+                    totalIncome += income.amount;
+                    currentIncomes.push(income);
+                    
+                    const li = document.createElement('li');
+                    li.className = 'flex justify-between items-center p-4 bg-green-50 border border-green-200 rounded-lg mb-3 transition-all duration-200 hover:scale-[1.02]';
+                    li.innerHTML = `
+                        <div class="flex-1">
+                            <div class="flex items-center justify-between">
+                                <span class="font-semibold text-gray-800">${income.name}</span>
+                                <span class="text-lg font-bold text-green-600">
+                                    ${formatCurrency(income.amount)}
+                                </span>
+                            </div>
+                            <div class="flex items-center justify-between mt-2">
+                                <span class="text-xs text-gray-500">${new Date(income.timestamp).toLocaleDateString('es-PE')}</span>
+                                <button onclick="window.deleteTransaction('${income.id}', 'income')" 
+                                        class="text-gray-400 hover:text-red-500 transition-colors duration-200 p-1 rounded"
+                                        title="Eliminar">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                    elements.incomeList.appendChild(li);
+                });
             }
 
-            elements.analysisResult.innerHTML = analysis;
-            elements.analyzeButton.disabled = false;
-            elements.analyzeButton.innerHTML = '🤖 Generar Análisis con IA';
-        }, 2000);
-    }
+            // Procesar gastos
+            elements.expenseList.innerHTML = '';
+            const filteredExpenses = selectedValue === 'all' ? allExpenses : 
+                allExpenses.filter(expense => {
+                    const date = new Date(expense.timestamp);
+                    const month = date.getMonth() + 1;
+                    const year = date.getFullYear();
+                    return `${String(month).padStart(2, '0')}-${year}` === selectedValue;
+                });
+                
+            filteredExpenses.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)); // Ordenar por fecha
 
-    function exportDataToCSV() {
-        if (currentIncomes.length === 0 && currentExpenses.length === 0) {
-            showMessage('No hay datos para exportar en el periodo actual', 'warning');
-            return;
+            if (filteredExpenses.length === 0) {
+                elements.expenseList.innerHTML = `
+                    <div class="text-center py-8 text-gray-400">
+                        <div class="text-4xl mb-2">💸</div>
+                        <p class="text-sm">No hay gastos registrados</p>
+                    </div>
+                `;
+            } else {
+                filteredExpenses.forEach(expense => {
+                    totalExpenses += expense.amount;
+                    currentExpenses.push(expense);
+                    
+                    const li = document.createElement('li');
+                    li.className = 'flex justify-between items-center p-4 bg-red-50 border border-red-200 rounded-lg mb-3 transition-all duration-200 hover:scale-[1.02]';
+                    li.innerHTML = `
+                        <div class="flex-1">
+                            <div class="flex items-center justify-between">
+                                <span class="font-semibold text-gray-800">${expense.name}</span>
+                                <span class="text-lg font-bold text-red-600">
+                                    ${formatCurrency(expense.amount)}
+                                </span>
+                            </div>
+                            <div class="flex items-center justify-between mt-2">
+                                <span class="text-xs text-gray-500">${new Date(expense.timestamp).toLocaleDateString('es-PE')}</span>
+                                <button onclick="window.deleteTransaction('${expense.id}', 'expense')" 
+                                        class="text-gray-400 hover:text-red-500 transition-colors duration-200 p-1 rounded"
+                                        title="Eliminar">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                    elements.expenseList.appendChild(li);
+                });
+            }
+
+            // Actualizar estadísticas
+            elements.totalIncome.textContent = formatCurrency(totalIncome);
+            elements.totalExpense.textContent = formatCurrency(totalExpenses);
+            elements.netBalance.textContent = formatCurrency(totalIncome - totalExpenses);
+
+            // Actualizar contadores
+            elements.incomeCount.textContent = `${filteredIncomes.length} registros`;
+            elements.expenseCount.textContent = `${filteredExpenses.length} registros`;
+
+            // Actualizar estilo del balance neto
+            const balance = totalIncome - totalExpenses;
+            if (balance > 0) {
+                elements.netBalance.className = 'text-3xl font-bold text-green-600';
+            } else if (balance < 0) {
+                elements.netBalance.className = 'text-3xl font-bold text-red-600';
+            } else {
+                elements.netBalance.className = 'text-3xl font-bold text-gray-600';
+            }
         }
 
-        const allTransactions = [
-            ...currentIncomes.map(t => ({ ...t, type: 'INGRESO' })),
-            ...currentExpenses.map(t => ({ ...t, type: 'GASTO' }))
-        ].sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp)); // Ordenar por fecha
+        // Poblar filtro de meses
+        function populateMonthFilter() {
+            const today = new Date();
+            const currentMonth = today.getMonth();
+            const currentYear = today.getFullYear();
+            const monthNames = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", 
+                              "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
 
-        const headers = ['Fecha', 'Tipo', 'Descripcion', 'Monto (S/)'];
-        let csvContent = headers.join(',') + '\n';
+            let optionsHTML = `<option value="all">📅 Todos los meses</option>`;
 
-        allTransactions.forEach(transaction => {
-            const row = [
-                new Date(transaction.timestamp).toLocaleDateString('es-PE'),
-                transaction.type,
-                // Escapar comillas y evitar separadores en la descripción
-                `"${transaction.name.replace(/"/g, '""')}"`, 
-                transaction.amount.toFixed(2)
+            for (let i = 0; i < 12; i++) {
+                // Calcula el mes y año retrocediendo i meses
+                let date = new Date(currentYear, currentMonth - i, 1);
+                const month = date.getMonth();
+                const year = date.getFullYear();
+                const value = `${String(month + 1).padStart(2, '0')}-${year}`;
+                const label = `${monthNames[month]} ${year}`;
+                const emoji = i === 0 ? '🎯' : i < 3 ? '📊' : '📅';
+                
+                optionsHTML += `<option value="${value}" ${i === 0 ? 'selected' : ''}>${emoji} ${label}</option>`;
+            }
+               
+            elements.monthFilter.innerHTML = optionsHTML;
+        }
+
+        // Funciones CRUD
+        function addTransaction(name, amount, type) {
+            if (!name || isNaN(amount) || amount <= 0) {
+                showMessage("Por favor, ingresa un nombre y cantidad válida (mayor a 0)");
+                return;
+            }
+
+            const transaction = {
+                id: Date.now().toString() + Math.random().toString(36).substr(2, 5),
+                name: name.trim(),
+                amount: parseFloat(amount),
+                timestamp: new Date().toISOString()
+            };
+
+            if (type === 'income') {
+                allIncomes.push(transaction);
+                elements.incomeName.value = '';
+                elements.incomeAmount.value = '';
+                showMessage('Ingreso registrado exitosamente', 'success');
+            } else {
+                allExpenses.push(transaction);
+                elements.expenseName.value = '';
+                elements.expenseAmount.value = '';
+                showMessage('Gasto registrado exitosamente', 'success');
+            }
+
+            handleDataChange();
+        }
+
+        // HACER deleteTransaction GLOBAL
+        window.deleteTransaction = function(id, type) {
+            if (type === 'income') {
+                allIncomes = allIncomes.filter(income => income.id !== id);
+                showMessage('Ingreso eliminado', 'success');
+            } else {
+                allExpenses = allExpenses.filter(expense => expense.id !== id);
+                showMessage('Gasto eliminado', 'success');
+            }
+            handleDataChange();
+        };
+
+        // Funciones adicionales
+        function analyzeFinancesWithGemini() {
+            elements.analyzeButton.disabled = true;
+            elements.analyzeButton.innerHTML = '🔄 Analizando...';
+            elements.analysisResult.innerHTML = `
+                <div class="text-center py-8">
+                    <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mx-auto mb-4"></div>
+                    <p class="text-gray-500">Generando análisis con IA...</p>
+                </div>
+            `;
+
+            setTimeout(() => {
+                // Extraer montos numéricos
+                const totalIncomeText = elements.totalIncome.textContent.replace('S/', '').replace(',', '').trim();
+                const totalExpenseText = elements.totalExpense.textContent.replace('S/', '').replace(',', '').trim();
+
+                const totalIncome = parseFloat(totalIncomeText) || 0;
+                const totalExpense = parseFloat(totalExpenseText) || 0;
+                const balance = totalIncome - totalExpense;
+
+                let analysis = '';
+                if (totalIncome === 0 && totalExpense === 0) {
+                    analysis = `
+                        <div class="bg-gray-50 border border-gray-200 rounded-lg p-6">
+                            <h4 class="font-semibold text-gray-800 mb-3">🧐 Sin datos para analizar</h4>
+                            <p class="text-gray-700 text-sm">
+                                Por favor, registra algunos ingresos y gastos para que la IA pueda generar un análisis.
+                            </p>
+                        </div>
+                    `;
+                } else if (balance > 0) {
+                    const percent = totalIncome > 0 ? ((balance / totalIncome) * 100).toFixed(1) : '0.0';
+                    analysis = `
+                        <div class="bg-green-50 border border-green-200 rounded-lg p-6">
+                            <h4 class="font-semibold text-green-800 mb-3">🎉 ¡Excelente gestión financiera!</h4>
+                            <p class="text-green-700 text-sm mb-3">
+                                Tienes un superávit de <strong>${formatCurrency(balance)}</strong> este mes. 
+                                Esto representa un <strong>${percent}%</strong> de ahorro sobre tus ingresos.
+                            </p>
+                            <p class="text-green-700 text-sm">
+                                💡 <strong>Consejo:</strong> Considera invertir una parte de este excedente 
+                                para hacer crecer tu patrimonio.
+                            </p>
+                        </div>
+                    `;
+                } else if (balance < 0) {
+                    const percent = totalIncome > 0 ? ((Math.abs(balance) / totalIncome) * 100).toFixed(1) : '100.0';
+                    analysis = `
+                        <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-6">
+                            <h4 class="font-semibold text-yellow-800 mb-3">⚠️ Atención necesaria</h4>
+                            <p class="text-yellow-700 text-sm mb-3">
+                                Tienes un déficit de <strong>${formatCurrency(Math.abs(balance))}</strong> este mes. 
+                                Tus gastos superan tus ingresos en un <strong>${percent}%</strong>.
+                            </p>
+                            <p class="text-yellow-700 text-sm">
+                                💡 <strong>Consejo:</strong> Revisa tus gastos recurrentes y considera 
+                                reducir gastos no esenciales para equilibrar tu presupuesto.
+                            </p>
+                        </div>
+                    `;
+                } else {
+                    analysis = `
+                        <div class="bg-blue-50 border border-blue-200 rounded-lg p-6">
+                            <h4 class="font-semibold text-blue-800 mb-3">⚖️ Balance equilibrado</h4>
+                            <p class="text-blue-700 text-sm mb-3">
+                                Tus ingresos y gastos están perfectamente equilibrados este mes. 
+                                No tienes superávit ni déficit.
+                            </p>
+                            <p class="text-blue-700 text-sm">
+                                💡 <strong>Consejo:</strong> Intenta generar un pequeño superávit 
+                                cada mes para crear un fondo de emergencia.
+                            </p>
+                        </div>
+                    `;
+                }
+
+                elements.analysisResult.innerHTML = analysis;
+                elements.analyzeButton.disabled = false;
+                elements.analyzeButton.innerHTML = '🤖 Generar Análisis con IA';
+            }, 2000);
+        }
+
+        function exportDataToCSV() {
+            if (currentIncomes.length === 0 && currentExpenses.length === 0) {
+                showMessage('No hay datos para exportar en el periodo actual', 'warning');
+                return;
+            }
+
+            const allTransactions = [
+                ...currentIncomes.map(t => ({ ...t, type: 'INGRESO' })),
+                ...currentExpenses.map(t => ({ ...t, type: 'GASTO' }))
+            ].sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp)); // Ordenar por fecha
+
+            const headers = ['Fecha', 'Tipo', 'Descripcion', 'Monto (S/)'];
+            let csvContent = headers.join(',') + '\n';
+
+            allTransactions.forEach(transaction => {
+                const row = [
+                    new Date(transaction.timestamp).toLocaleDateString('es-PE'),
+                    transaction.type,
+                    // Escapar comillas y evitar separadores en la descripción
+                    `"${transaction.name.replace(/"/g, '""')}"`, 
+                    transaction.amount.toFixed(2)
+                ];
+                csvContent += row.join(',') + '\n';
+            });
+
+            const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' }); // Agregar BOM para compatibilidad con tildes en Excel
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            const selectedMonth = elements.monthFilter.options[elements.monthFilter.selectedIndex].text.replace('🎯', '').replace('📊', '').replace('📅', '').trim();
+            a.download = `Reporte_Finanzas_${selectedMonth.replace(/ /g, '_')}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            showMessage('Datos exportados a CSV exitosamente', 'success');
+        }
+         
+         
+        // --- SIMULACIÓN DE DATOS Y EVENTOS ---
+         
+        function loadInitialData() {
+            elements.userIdDisplay.textContent = `👤 ${userId}`;
+
+            const today = new Date();
+            const currentMonthYear = `${String(today.getMonth() + 1).padStart(2, '0')}-${today.getFullYear()}`;
+            
+            // Datos de muestra para el mes actual
+            const sampleIncomes = [
+                { id: 'inc1', name: 'Salario Principal', amount: 4500.00, timestamp: new Date(today.getFullYear(), today.getMonth(), 15).toISOString() },
+                { id: 'inc2', name: 'Venta de Servicios', amount: 850.50, timestamp: new Date(today.getFullYear(), today.getMonth(), 20).toISOString() }
             ];
-            csvContent += row.join(',') + '\n';
+
+            const sampleExpenses = [
+                { id: 'exp1', name: 'Alquiler', amount: 1500.00, timestamp: new Date(today.getFullYear(), today.getMonth(), 1).toISOString() },
+                { id: 'exp2', name: 'Supermercado', amount: 450.70, timestamp: new Date(today.getFullYear(), today.getMonth(), 5).toISOString() },
+                { id: 'exp3', name: 'Servicio de Internet', amount: 100.00, timestamp: new Date(today.getFullYear(), today.getMonth(), 10).toISOString() },
+                { id: 'exp4', name: 'Transporte', amount: 120.00, timestamp: new Date(today.getFullYear(), today.getMonth(), 18).toISOString() }
+            ];
+            
+            // Datos de muestra para el mes anterior (para probar el filtro)
+            const lastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+            const lastMonthIncomes = [
+                { id: 'inc3', name: 'Salario Anterior', amount: 4000.00, timestamp: new Date(lastMonth.getFullYear(), lastMonth.getMonth(), 15).toISOString() }
+            ];
+            
+            allIncomes.push(...sampleIncomes, ...lastMonthIncomes);
+            allExpenses.push(...sampleExpenses);
+            
+            populateMonthFilter();
+            handleDataChange();
+        }
+
+        function setupEventListeners() {
+            elements.addIncomeBtn.addEventListener('click', () => {
+                addTransaction(elements.incomeName.value, elements.incomeAmount.value, 'income');
+            });
+            
+            elements.addExpenseBtn.addEventListener('click', () => {
+                addTransaction(elements.expenseName.value, elements.expenseAmount.value, 'expense');
+            });
+
+            elements.monthFilter.addEventListener('change', handleDataChange);
+            elements.analyzeButton.addEventListener('click', analyzeFinancesWithGemini);
+            elements.exportBtn.addEventListener('click', exportDataToCSV);
+        }
+
+        // Inicialización de la aplicación
+        document.addEventListener('DOMContentLoaded', () => {
+            loadInitialData();
+            setupEventListeners();
+            // Hacer showMessage global también
+            window.showMessage = showMessage;
         });
 
-        const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' }); // Agregar BOM para compatibilidad con tildes en Excel
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        const selectedMonth = elements.monthFilter.options[elements.monthFilter.selectedIndex].text.replace('🎯', '').replace('📊', '').replace('📅', '').trim();
-        a.download = `Reporte_Finanzas_${selectedMonth.replace(/ /g, '_')}.csv`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-        showMessage('Datos exportados a CSV exitosamente', 'success');
-    }
-     
-     
-    // --- SIMULACIÓN DE DATOS Y EVENTOS ---
-     
-    function loadInitialData() {
-        elements.userIdDisplay.textContent = `👤 ${userId}`;
-
-        const today = new Date();
-        const currentMonthYear = `${String(today.getMonth() + 1).padStart(2, '0')}-${today.getFullYear()}`;
-        
-        // Datos de muestra para el mes actual
-        const sampleIncomes = [
-            { id: 'inc1', name: 'Salario Principal', amount: 4500.00, timestamp: new Date(today.getFullYear(), today.getMonth(), 15).toISOString() },
-            { id: 'inc2', name: 'Venta de Servicios', amount: 850.50, timestamp: new Date(today.getFullYear(), today.getMonth(), 20).toISOString() }
-        ];
-
-        const sampleExpenses = [
-            { id: 'exp1', name: 'Alquiler', amount: 1500.00, timestamp: new Date(today.getFullYear(), today.getMonth(), 1).toISOString() },
-            { id: 'exp2', name: 'Supermercado', amount: 450.70, timestamp: new Date(today.getFullYear(), today.getMonth(), 5).toISOString() },
-            { id: 'exp3', name: 'Servicio de Internet', amount: 100.00, timestamp: new Date(today.getFullYear(), today.getMonth(), 10).toISOString() },
-            { id: 'exp4', name: 'Transporte', amount: 120.00, timestamp: new Date(today.getFullYear(), today.getMonth(), 18).toISOString() }
-        ];
-        
-        // Datos de muestra para el mes anterior (para probar el filtro)
-        const lastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
-        const lastMonthIncomes = [
-            { id: 'inc3', name: 'Salario Anterior', amount: 4000.00, timestamp: new Date(lastMonth.getFullYear(), lastMonth.getMonth(), 15).toISOString() }
-        ];
-        
-        allIncomes.push(...sampleIncomes, ...lastMonthIncomes);
-        allExpenses.push(...sampleExpenses);
-        
-        populateMonthFilter();
-        handleDataChange();
-    }
-
-    function setupEventListeners() {
-        elements.addIncomeBtn.addEventListener('click', () => {
-            addTransaction(elements.incomeName.value, elements.incomeAmount.value, 'income');
-        });
-        
-        elements.addExpenseBtn.addEventListener('click', () => {
-            addTransaction(elements.expenseName.value, elements.expenseAmount.value, 'expense');
-        });
-
-        elements.monthFilter.addEventListener('change', handleDataChange);
-        elements.analyzeButton.addEventListener('click', analyzeFinancesWithGemini);
-        elements.exportBtn.addEventListener('click', exportDataToCSV);
-    }
-
-    // Inicialización de la aplicación
-    document.addEventListener('DOMContentLoaded', () => {
-        loadInitialData();
-        setupEventListeners();
-    });
-
-</script>
+    </script>
+</body>
+</html>
