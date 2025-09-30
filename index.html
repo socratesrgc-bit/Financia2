@@ -268,7 +268,7 @@
 
         let userId = null;
         let isAuthReady = false;
-        let listenersInitialized = false; // <-- NUEVO: Bandera para asegurar que onSnapshot solo se inicie una vez.
+        let listenersInitialized = false; 
         
         // Variables globales para almacenar TODOS los datos (sin filtrar)
         let allIncomes = []; 
@@ -387,6 +387,7 @@
                 // onSnapshot se encargará de actualizar la vista
             } catch (error) {
                 console.error("Error al eliminar la transacción:", error);
+                // Usamos un modal para errores críticos si fuera necesario, pero por ahora solo mensaje
                 showMessage(`Error al eliminar: ${error.message}`);
             }
         };
@@ -457,6 +458,7 @@
             
             // --- PROCESAR INGRESOS ---
             elements.incomeList.innerHTML = '';
+            // Ordenamos primero por timestamp (más reciente primero)
             const filteredIncomes = allIncomes.filter(incomeFilter).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
             
             if (filteredIncomes.length === 0) {
@@ -469,6 +471,7 @@
                     const dateStr = new Date(income.timestamp).toLocaleDateString('es-PE');
                     const safeId = income.id;
                     
+                    // IMPORTANTE: El onclick debe ser un string válido para la función global
                     elements.incomeList.innerHTML += `
                         <li class="flex justify-between items-center p-4 bg-green-50 border border-green-200 rounded-lg transition-all duration-200 hover:shadow-md">
                             <div class="flex-1 min-w-0 pr-2">
@@ -479,7 +482,7 @@
                                 <span class="text-lg font-bold text-green-600 shrink-0">
                                     ${formatCurrency(income.amount)}
                                 </span>
-                                <button onclick="deleteTransaction('${safeId.replace(/'/g, "\\'")}', 'income')" 
+                                <button onclick="deleteTransaction('${safeId}', 'income')" 
                                         class="delete-btn text-gray-400 hover:text-red-500 transition-colors duration-200 p-1 rounded"
                                         title="Eliminar">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -494,6 +497,7 @@
 
             // --- PROCESAR GASTOS ---
             elements.expenseList.innerHTML = '';
+            // Ordenamos primero por timestamp (más reciente primero)
             const filteredExpenses = allExpenses.filter(expenseFilter).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
             
             if (filteredExpenses.length === 0) {
@@ -506,6 +510,7 @@
                     const dateStr = new Date(expense.timestamp).toLocaleDateString('es-PE');
                     const safeId = expense.id;
 
+                    // IMPORTANTE: El onclick debe ser un string válido para la función global
                     elements.expenseList.innerHTML += `
                         <li class="flex justify-between items-center p-4 bg-red-50 border border-red-200 rounded-lg transition-all duration-200 hover:shadow-md">
                             <div class="flex-1 min-w-0 pr-2">
@@ -516,7 +521,7 @@
                                 <span class="text-lg font-bold text-red-600 shrink-0">
                                     ${formatCurrency(expense.amount)}
                                 </span>
-                                <button onclick="deleteTransaction('${safeId.replace(/'/g, "\\'")}', 'expense')" 
+                                <button onclick="deleteTransaction('${safeId}', 'expense')" 
                                         class="delete-btn text-gray-400 hover:text-red-500 transition-colors duration-200 p-1 rounded"
                                         title="Eliminar">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -716,7 +721,6 @@
                 populateMonthFilter(allTransactions); // Actualiza el filtro de meses
                 filterAndRenderData(); // Re-renderiza con el filtro actual
             }, (error) => {
-                // Este error se registra, pero no debería bloquear la app una vez que la conexión se restablece.
                 console.error("Error al escuchar ingresos (transitorio):", error);
                 showMessage("Error al cargar ingresos en tiempo real. Revisa tus permisos de Firestore.", 'error');
             });
@@ -734,7 +738,6 @@
                 populateMonthFilter(allTransactions); // Actualiza el filtro de meses
                 filterAndRenderData(); // Re-renderiza con el filtro actual
             }, (error) => {
-                // Este error se registra, pero no debería bloquear la app una vez que la conexión se restablece.
                 console.error("Error al escuchar gastos (transitorio):", error);
                 showMessage("Error al cargar gastos en tiempo real. Revisa tus permisos de Firestore.", 'error');
             });
@@ -758,26 +761,35 @@
             }
         }
 
+        // Clave para guardar el ID anónimo en localStorage
+        const ANONYMOUS_USER_KEY = `anon_user_id_${appId}`;
+
         // Listener de estado de autenticación (Se ejecuta una vez al inicio y en cada cambio)
         onAuthStateChanged(auth, (user) => {
-            // FIX: Solo inicializar listeners la primera vez que se resuelve el estado de auth.
+            // FIX 2: Lógica de persistencia de usuario anónimo
             if (!listenersInitialized) {
                 if (user) {
                     userId = user.uid;
                     elements.userIdDisplay.textContent = `ID Usuario: ${userId}`;
                 } else {
-                    // Si el token inicial falla o no existe, se usa un ID anónimo para operar.
-                    userId = crypto.randomUUID(); 
-                    elements.authStatusDisplay.textContent = '⚠️ Sesión Anónima';
+                    // Si no hay token de autenticación, intentamos recuperar el ID anónimo.
+                    let storedId = localStorage.getItem(ANONYMOUS_USER_KEY);
+                    if (storedId) {
+                        userId = storedId;
+                    } else {
+                        // Si no hay ID anónimo, generamos uno nuevo y lo guardamos.
+                        userId = crypto.randomUUID(); 
+                        localStorage.setItem(ANONYMOUS_USER_KEY, userId);
+                    }
+                    elements.authStatusDisplay.textContent = '⚠️ Sesión Anónima Persistente';
                     elements.userIdDisplay.textContent = `ID Anónimo: ${userId}`;
                 }
                 
-                isAuthReady = true; // El ID de usuario (autenticado o anónimo) está listo
-                setupFirestoreListeners(); // Inicia la escucha de datos
-                listenersInitialized = true; // Asegura que no se vuelva a llamar
+                isAuthReady = true; 
+                setupFirestoreListeners(); 
+                listenersInitialized = true; 
             } else if (user) {
-                // Actualizar ID si el usuario cambia (ej. de anónimo a autenticado),
-                // pero los listeners ya están establecidos.
+                // Si el usuario se autentica después (ej. con un proceso externo), actualizamos el ID.
                 userId = user.uid;
                 elements.userIdDisplay.textContent = `ID Usuario: ${userId}`;
             }
