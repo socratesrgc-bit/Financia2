@@ -1,148 +1,1321 @@
 <!DOCTYPE html>
+
 <html lang="es">
+
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Control de Ingresos y Gastos</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        /* Estilos CSS simplificados */
-        body { font-family: 'Inter', sans-serif; background-color: #f7f9fb; }
-        .list-container { max-height: 250px; overflow-y: auto; }
-    </style>
+
+    <meta charset="UTF-8">
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Control de Ingresos y Gastos</title>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <style>
+
+        /* Fuente Inter por defecto y estilo de fondo */
+
+        body {
+
+            font-family: 'Inter', sans-serif;
+
+            background-color: #f7f9fb;
+
+        }
+
+        /* Ocultar la barra de desplazamiento en los contenedores de listas */
+
+        .list-container {
+
+            max-height: 250px;
+
+            overflow-y: auto;
+
+            scrollbar-width: none; /* Firefox */
+
+        }
+
+    </style>
+
+    <script type="module">
+
+        
+
+        // --- AUTODIAGNÓSTICO CRÍTICO PARA USO LOCAL ---
+
+        if (window.location.protocol === 'file:') {
+
+            // Si se ejecuta localmente (file://), muestra un error claro y termina la ejecución de Firebase.
+
+            window.onload = function() {
+
+                const messageBox = document.getElementById('message-box');
+
+                if (messageBox) {
+
+                    messageBox.textContent = "❌ ERROR CRÍTICO: Las bases de datos y la funcionalidad avanzada no funcionan si abres este archivo directamente (protocolo 'file://'). POR FAVOR, USA EL BOTÓN 'PREVIEW' O LA VERSIÓN ONLINE.";
+
+                    messageBox.className = 'p-4 rounded-xl mt-4 text-sm font-bold text-center bg-red-600 text-white shadow-xl';
+
+                    messageBox.classList.remove('hidden');
+
+                }
+
+            };
+
+            return; // Termina la ejecución de todo el código Firebase/Funcional si falla la carga.
+
+        }
+
+        // --- FIN DE AUTODIAGNÓSTICO ---
+
+
+
+
+
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+
+        import { getFirestore, doc, addDoc, onSnapshot, collection, query, serverTimestamp, deleteDoc, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+
+
+        // --- Configuración e Inicialización de Firebase (CORREGIDA) ---
+
+        const firebaseConfig = {
+
+            apiKey: "AIzaSyCil5A3PMp9-vUY5qTK_wbTmLtStqAEs9E",
+
+            authDomain: "financia2-4f80e.firebaseapp.com",
+
+            projectId: "financia2-4f80e",
+
+            storageBucket: "financia2-4f80e.firebasestorage.app",
+
+            messagingSenderId: "1076125827715",
+
+            appId: "1:1076125827715:web:6cdb2eb77a937be4fe11b6"
+
+            // measurementId no es necesario para la inicialización básica
+
+        };
+
+        const appId = firebaseConfig.projectId; // Usa el Project ID como el App ID para la lógica interna
+
+        const initialAuthToken = null; // No usamos el token inicial en esta configuración
+
+
+
+        const dbApp = initializeApp(firebaseConfig);
+
+        const db = getFirestore(dbApp);
+
+        const auth = getAuth(dbApp);
+
+        setLogLevel('debug');
+
+
+
+        // --- Variables de Estado Global y Referencias de Firestore ---
+
+        window.userId = null; 
+
+        window.db = db;
+
+        const EXPENSE_COLLECTION = 'expenses';
+
+        const INCOME_COLLECTION = 'incomes';
+
+        
+
+        // Almacenamiento de TODAS las transacciones (sin filtrar)
+
+        window.allIncomes = [];
+
+        window.allExpenses = [];
+
+
+
+        // Almacenamiento de transacciones FILTRADAS (usadas por LLM y CSV)
+
+        window.currentIncomes = [];
+
+        window.currentExpenses = [];
+
+
+
+        // Configuración de la API Gemini
+
+        const apiKey = "AIzaSyAiRIs1hTzS4ABu-ykWVqoP2wmlGHh3gEs";
+
+        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+
+
+
+        // Función para codificar una espera con retroceso exponencial (manejo de errores de API).
+
+        const exponentialBackoff = async (attempt) => {
+
+            const delay = Math.pow(2, attempt) * 1000 + Math.random() * 1000;
+
+            return new Promise(resolve => setTimeout(resolve, delay));
+
+        };
+
+        
+
+        // Función para obtener la referencia de la colección de un usuario (privada)
+
+        const getCollectionRef = (collectionName) => {
+
+            if (!window.userId || !appId) return null;
+
+            return collection(window.db, `artifacts/${appId}/users/${window.userId}/${collectionName}`);
+
+        };
+
+
+
+        // --- Referencias de Elementos de UI ---
+
+        const incomeNameInput = document.getElementById('income-name');
+
+        const incomeAmountInput = document.getElementById('income-amount');
+
+        const expenseNameInput = document.getElementById('expense-name');
+
+        const expenseAmountInput = document.getElementById('expense-amount');
+
+
+
+        const totalIncomeDisplay = document.getElementById('total-income');
+
+        const totalExpenseDisplay = document.getElementById('total-expense');
+
+        const netBalanceDisplay = document.getElementById('net-balance');
+
+
+
+        const incomeList = document.getElementById('income-list');
+
+        const expenseList = document.getElementById('expense-list');
+
+        
+
+        const userIdDisplay = document.getElementById('user-id-display');
+
+        const messageBox = document.getElementById('message-box');
+
+        const monthFilter = document.getElementById('month-filter');
+
+        
+
+        // --- Utilidades de UI ---
+
+        window.showMessage = (message, type = 'error') => {
+
+            messageBox.textContent = message;
+
+            messageBox.className = 'p-3 rounded-lg mt-4 text-sm font-semibold text-center';
+
+            if (type === 'error') {
+
+                messageBox.classList.add('bg-red-100', 'text-red-800');
+
+            } else if (type === 'success') {
+
+                messageBox.classList.add('bg-green-100', 'text-green-800');
+
+            }
+
+            messageBox.classList.remove('hidden');
+
+            setTimeout(() => {
+
+                messageBox.classList.add('hidden');
+
+            }, 5000);
+
+        };
+
+
+
+        const formatCurrency = (amount) => {
+
+            return `S/ ${amount.toFixed(2)}`;
+
+        }
+
+        
+
+        // Función auxiliar para cambiar el color del Balance Neto
+
+        const updateNetBalanceStyle = (balance) => {
+
+            const display = netBalanceDisplay;
+
+            display.classList.remove('text-green-500', 'text-red-500', 'text-gray-500');
+
+            if (balance > 0) {
+
+                display.classList.add('text-green-500');
+
+            } else if (balance < 0) {
+
+                display.classList.add('text-red-500');
+
+            } else {
+
+                display.classList.add('text-gray-500');
+
+            }
+
+        };
+
+
+
+
+
+        // --- Lógica de Filtro y Renderizado ---
+
+
+
+        /**
+
+         * Lógica principal que filtra, calcula totales y renderiza las listas.
+
+         * Se llama cada vez que hay un cambio en los datos de Firestore o en el filtro de mes.
+
+         */
+
+        window.handleDataChange = () => {
+
+            const selectedValue = monthFilter.value; // e.g., "09-2025" o "all"
+
+            let totalIncome = 0;
+
+            let totalExpenses = 0;
+
+            
+
+            // Reset de las transacciones filtradas (para LLM/Exportar)
+
+            window.currentIncomes = [];
+
+            window.currentExpenses = [];
+
+            
+
+            // Función interna para procesar y renderizar un tipo de lista
+
+            const processList = (data, listElement, type) => {
+
+                listElement.innerHTML = '';
+
+                let listTotal = 0;
+
+
+
+                if (data.length === 0) {
+
+                    listElement.innerHTML = `<li class="text-center py-4 text-gray-500 italic">No hay ${type === 'income' ? 'ingresos' : 'gastos'} registrados aún.</li>`;
+
+                    return 0;
+
+                }
+
+
+
+                const filtered = data.filter(t => {
+
+                    if (selectedValue === 'all') return true;
+
+                    
+
+                    // Comprueba si la fecha de la transacción coincide con el filtro MM-YYYY
+
+                    const month = t.dateObj.getMonth() + 1; // Mes 1-indexado
+
+                    const year = t.dateObj.getFullYear();
+
+                    return `${String(month).padStart(2, '0')}-${year}` === selectedValue;
+
+                });
+
+
+
+                if (filtered.length === 0) {
+
+                    listElement.innerHTML = `<li class="text-center py-4 text-gray-500 italic">No hay ${type === 'income' ? 'ingresos' : 'gastos'} registrados en este mes.</li>`;
+
+                }
+
+
+
+                filtered.forEach(item => {
+
+                    listTotal += item.amount;
+
+                    
+
+                    // Almacenar en la lista filtrada global (para LLM/Exportar)
+
+                    if (type === 'income') window.currentIncomes.push(item);
+
+                    if (type === 'expense') window.currentExpenses.push(item);
+
+
+
+                    const li = document.createElement('li');
+
+                    const typeColor = type === 'income' ? 'green' : 'red';
+
+                    const deleteFn = `window.deleteTransaction('${item.id}', '${type}')`;
+
+                    
+
+                    li.className = `flex justify-between items-center p-3 bg-white border-b border-gray-100 hover:bg-${typeColor}-50 transition duration-150 rounded-lg shadow-sm mb-1`;
+
+                    li.innerHTML = `
+
+                        <div class="flex-1 text-gray-800">
+
+                            <span class="block font-medium">${item.name}</span>
+
+                            <span class="block text-xs text-gray-500">${item.dateObj.toLocaleDateString()}</span>
+
+                        </div>
+
+                        <span class="text-lg font-bold text-${typeColor}-600 mr-4">
+
+                            ${formatCurrency(item.amount)}
+
+                        </span>
+
+                        <button onclick="${deleteFn}" 
+
+                                class="text-gray-400 hover:text-${typeColor}-500 transition duration-150 p-1 rounded-full bg-gray-100 hover:bg-${typeColor}-100"
+
+                                title="Eliminar ${type === 'income' ? 'ingreso' : 'gasto'}">
+
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+
+                              <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm4 0a1 1 0 10-2 0v6a1 1 0 102 0V8z" clip-rule="evenodd" />
+
+                            </svg>
+
+                        </button>
+
+                    `;
+
+                    listElement.appendChild(li);
+
+                });
+
+                return listTotal;
+
+            }
+
+
+
+            // Procesar ambas listas y obtener totales
+
+            totalIncome = processList(window.allIncomes, incomeList, 'income');
+
+            totalExpenses = processList(window.allExpenses, expenseList, 'expense');
+
+
+
+            // Actualizar totales en la UI
+
+            totalIncomeDisplay.textContent = formatCurrency(totalIncome);
+
+            totalExpenseDisplay.textContent = formatCurrency(totalExpenses);
+
+            netBalanceDisplay.textContent = formatCurrency(totalIncome - totalExpenses);
+
+            updateNetBalanceStyle(totalIncome - totalExpenses);
+
+        };
+
+
+
+        // Alias para el evento onchange del selector
+
+        window.applyFilterAndRecalculate = window.handleDataChange; 
+
+
+
+        /**
+
+         * Llena el selector de meses con los últimos 12 meses.
+
+         */
+
+        const populateMonthFilter = () => {
+
+            const today = new Date();
+
+            const currentMonth = today.getMonth();
+
+            const currentYear = today.getFullYear();
+
+            const monthNames = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+
+
+
+            let optionsHTML = `<option value="all">Ver Todas las Transacciones</option>`;
+
+
+
+            // Generar opciones para los últimos 12 meses (incluyendo el actual)
+
+            for (let i = 0; i < 12; i++) {
+
+                // Se resta 'i' para ir hacia el pasado (mes - i)
+
+                let date = new Date(currentYear, currentMonth - i, 1);
+
+                const month = date.getMonth();
+
+                const year = date.getFullYear();
+
+                // Valor en formato MM-YYYY (usamos mes + 1 porque en JS es 0-indexado)
+
+                const value = `${String(month + 1).padStart(2, '0')}-${year}`; 
+
+                const label = `${monthNames[month]} ${year}`;
+
+                
+
+                optionsHTML += `<option value="${value}" ${i === 0 ? 'selected' : ''}>${label}</option>`;
+
+            }
+
+            
+
+            monthFilter.innerHTML = optionsHTML;
+
+        };
+
+
+
+
+
+        // --- Lógica de Autenticación y Carga Inicial ---
+
+        
+
+        /**
+
+         * Configura los listeners de Firestore para obtener los datos en tiempo real.
+
+         */
+
+        window.loadFinancialData = () => {
+
+            // --- Listener de Gastos ---
+
+            const expensesRef = getCollectionRef(EXPENSE_COLLECTION);
+
+            if (expensesRef) {
+
+                onSnapshot(query(expensesRef), (snapshot) => {
+
+                    // Mapear los documentos y añadir el objeto de fecha y el ID
+
+                    window.allExpenses = snapshot.docs.map(doc => ({ 
+
+                        ...doc.data(), 
+
+                        id: doc.id,
+
+                        dateObj: doc.data().timestamp?.toDate() || new Date()
+
+                    }));
+
+                    window.handleDataChange(); // Recalcula y renderiza
+
+                }, (error) => {
+
+                    console.error("Error en onSnapshot (Gastos):", error);
+
+                });
+
+            }
+
+
+
+            // --- Listener de Ingresos ---
+
+            const incomesRef = getCollectionRef(INCOME_COLLECTION);
+
+            if (incomesRef) {
+
+                onSnapshot(query(incomesRef), (snapshot) => {
+
+                    // Mapear los documentos y añadir el objeto de fecha y el ID
+
+                    window.allIncomes = snapshot.docs.map(doc => ({ 
+
+                        ...doc.data(), 
+
+                        id: doc.id,
+
+                        dateObj: doc.data().timestamp?.toDate() || new Date()
+
+                    }));
+
+                    window.handleDataChange(); // Recalcula y renderiza
+
+                }, (error) => {
+
+                    console.error("Error en onSnapshot (Ingresos):", error);
+
+                });
+
+            }
+
+        };
+
+
+
+        onAuthStateChanged(auth, async (user) => {
+
+            try {
+
+                if (!user) {
+
+                    await signInAnonymously(auth);
+
+                    user = auth.currentUser;
+
+                }
+
+                window.userId = user.uid;
+
+                userIdDisplay.textContent = `ID de Sesión: ${window.userId.substring(0, 10)}...`;
+
+                userIdDisplay.title = window.userId;
+
+
+
+                populateMonthFilter();
+
+                window.loadFinancialData();
+
+            } catch (e) {
+
+                console.error("Error de autenticación inicial:", e);
+
+                window.showMessage("No se pudo iniciar sesión. Verifica la consola.");
+
+            }
+
+        });
+
+
+
+        if (initialAuthToken) {
+
+            signInWithCustomToken(auth, initialAuthToken).catch(e => {
+
+                console.error("Error signing in with custom token, proceeding anonymously:", e);
+
+            });
+
+        }
+
+
+
+        // --- Funciones CRUD de Datos ---
+
+
+
+        /**
+
+         * Añade una nueva transacción (ingreso o gasto) a Firestore.
+
+         */
+
+        const addTransaction = async (name, amount, type) => {
+
+            if (!name || isNaN(amount) || amount <= 0) {
+
+                window.showMessage("Por favor, ingresa un nombre y una cantidad válida (mayor a 0).");
+
+                return;
+
+            }
+
+
+
+            if (!window.userId) {
+
+                window.showMessage("Error: Usuario no autenticado.");
+
+                return;
+
+            }
+
+
+
+            const collectionName = type === 'income' ? INCOME_COLLECTION : EXPENSE_COLLECTION;
+
+
+
+            try {
+
+                await addDoc(getCollectionRef(collectionName), {
+
+                    name: name,
+
+                    amount: amount,
+
+                    timestamp: serverTimestamp()
+
+                });
+
+
+
+                // Limpiar campos y mostrar éxito
+
+                if (type === 'income') {
+
+                    incomeNameInput.value = '';
+
+                    incomeAmountInput.value = '';
+
+                    window.showMessage("Ingreso registrado con éxito.", 'success');
+
+                } else {
+
+                    expenseNameInput.value = '';
+
+                    expenseAmountInput.value = '';
+
+                    window.showMessage("Gasto registrado con éxito.", 'success');
+
+                }
+
+
+
+            } catch (e) {
+
+                console.error(`Error al añadir ${type}: `, e);
+
+                window.showMessage(`Error al guardar el ${type}. Revisa la consola.`);
+
+            }
+
+        };
+
+
+
+        window.addIncome = () => addTransaction(incomeNameInput.value.trim(), parseFloat(incomeAmountInput.value), 'income');
+
+        window.addExpense = () => addTransaction(expenseNameInput.value.trim(), parseFloat(expenseAmountInput.value), 'expense');
+
+
+
+
+
+        /**
+
+         * Elimina una transacción de Firestore.
+
+         */
+
+        window.deleteTransaction = async (docId, type) => {
+
+             if (!window.userId) {
+
+                window.showMessage("Error: Usuario no autenticado.");
+
+                return;
+
+            }
+
+            const collectionName = type === 'income' ? INCOME_COLLECTION : EXPENSE_COLLECTION;
+
+            
+
+            try {
+
+                const docRef = doc(window.db, `artifacts/${appId}/users/${window.userId}/${collectionName}`, docId);
+
+                await deleteDoc(docRef);
+
+                window.showMessage(`${type === 'income' ? 'Ingreso' : 'Gasto'} eliminado.`, 'success');
+
+            } catch (e) {
+
+                console.error("Error al eliminar documento: ", e);
+
+                window.showMessage("Error al eliminar la transacción. Revisa la consola.");
+
+            }
+
+        };
+
+
+
+
+
+        // --- Funciones de la API Gemini ---
+
+        window.analyzeFinancesWithGemini = async () => {
+
+            const analysisButton = document.getElementById('analyze-button');
+
+            const analysisResult = document.getElementById('analysis-result');
+
+            
+
+            analysisButton.disabled = true;
+
+            analysisResult.innerHTML = '<p class="text-center text-gray-500 italic animate-pulse">Analizando datos con la IA...</p>';
+
+
+
+            const totalIncome = parseFloat(totalIncomeDisplay.textContent.replace('S/ ', '').replace(',', '') || 0);
+
+            const totalExpenses = parseFloat(totalExpenseDisplay.textContent.replace('S/ ', '').replace(',', '') || 0);
+
+            const netBalance = totalIncome - totalExpenses;
+
+
+
+            // Formatear los detalles de las transacciones (usando las FILTRADAS)
+
+            const formatTransactions = (transactions, type) => {
+
+                if (transactions.length === 0) return `No hay ${type} registrados en el mes actual.`;
+
+                return transactions.map(t => 
+
+                    `- ${t.name}: S/ ${t.amount.toFixed(2)}`
+
+                ).join('\n');
+
+            };
+
+
+
+            const incomeDetails = formatTransactions(window.currentIncomes, 'ingresos');
+
+            const expenseDetails = formatTransactions(window.currentExpenses, 'gastos');
+
+
+
+            // Construir el prompt para el LLM
+
+            const systemPrompt = "Actúa como un asesor financiero profesional. Analiza los datos de ingresos y gastos proporcionados por el usuario. Proporciona un breve resumen de la situación, identifica el gasto más grande o un área de mejora, y ofrece un consejo financiero conciso y práctico basado en los datos. La respuesta debe ser formal, en español y sin preámbulos, comenzando directamente con el análisis. No uses emojis.";
+
+            
+
+            const userQuery = `
+
+                Datos Financieros Mensuales (Soles Peruanos) para el periodo seleccionado:
+
+                Total Ingresos: ${formatCurrency(totalIncome)}
+
+                Total Gastos: ${formatCurrency(totalExpenses)}
+
+                Balance Neto: ${formatCurrency(netBalance)}
+
+                
+
+                Detalle de Ingresos:
+
+                ${incomeDetails}
+
+
+
+                Detalle de Gastos:
+
+                ${expenseDetails}
+
+
+
+                Por favor, genera un análisis financiero.
+
+            `;
+
+            
+
+            const payload = {
+
+                contents: [{ parts: [{ text: userQuery }] }],
+
+                systemInstruction: {
+
+                    parts: [{ text: systemPrompt }]
+
+                },
+
+                tools: [{ "google_search": {} }],
+
+            };
+
+            
+
+            const maxRetries = 3;
+
+
+
+            for (let attempt = 1; attempt <= maxRetries; attempt++) {
+
+                try {
+
+                    const response = await fetch(apiUrl, {
+
+                        method: 'POST',
+
+                        headers: { 'Content-Type': 'application/json' },
+
+                        body: JSON.stringify(payload)
+
+                    });
+
+
+
+                    if (!response.ok) {
+
+                        if (response.status >= 400 && response.status < 500) {
+
+                            throw new Error('Error del cliente (4xx). No se puede reintentar.');
+
+                        }
+
+                        throw new Error(`Error de red o servidor: ${response.status}`);
+
+                    }
+
+
+
+                    const result = await response.json();
+
+                    const text = result.candidates?.[0]?.content?.parts?.[0]?.text;
+
+
+
+                    if (text) {
+
+                        // Reemplazar saltos de línea para un formato limpio
+
+                        analysisResult.innerHTML = `<p class="whitespace-pre-wrap text-gray-700 text-left">${text.replace(/\n/g, '<br>')}</p>`;
+
+                        break;
+
+                    } else {
+
+                        throw new Error('Respuesta de la IA vacía o inesperada.');
+
+                    }
+
+
+
+                } catch (error) {
+
+                    console.error(`Intento ${attempt} fallido:`, error.message);
+
+                    if (attempt < maxRetries && error.message.indexOf('4xx') === -1) {
+
+                        await exponentialBackoff(attempt);
+
+                    } else {
+
+                        analysisResult.innerHTML = '<p class="text-red-600 font-semibold text-center">❌ Error al generar el análisis. Inténtalo de nuevo.</p>';
+
+                        break;
+
+                    }
+
+                }
+
+            }
+
+            analysisButton.disabled = false;
+
+        };
+
+
+
+
+
+        // --- Función de Exportación CSV ---
+
+        /**
+
+         * Función para exportar todos los ingresos y gastos a un archivo CSV.
+
+         * NOTA: Esta función ahora exporta SOLO los datos filtrados actualmente.
+
+         */
+
+        window.exportDataToCSV = () => {
+
+            // 1. Recopilar y unificar solo los datos FILTRADOS (currentIncomes/Expenses)
+
+            const allTransactions = [];
+
+            window.currentIncomes.forEach(t => {
+
+                allTransactions.push({ 
+
+                    date: t.dateObj ? t.dateObj.toLocaleDateString('es-PE') : new Date().toLocaleDateString('es-PE'), 
+
+                    type: 'INGRESO', 
+
+                    name: t.name, 
+
+                    amount: t.amount 
+
+                });
+
+            });
+
+            window.currentExpenses.forEach(t => {
+
+                allTransactions.push({ 
+
+                    date: t.dateObj ? t.dateObj.toLocaleDateString('es-PE') : new Date().toLocaleDateString('es-PE'), 
+
+                    type: 'GASTO', 
+
+                    name: t.name, 
+
+                    amount: t.amount 
+
+                });
+
+            });
+
+
+
+            if (allTransactions.length === 0) {
+
+                window.showMessage("No hay transacciones filtradas para exportar.", 'error');
+
+                return;
+
+            }
+
+
+
+            // 2. Crear el contenido CSV
+
+            const headers = ["Fecha", "Tipo", "Nombre", "Monto (S/)"];
+
+            const filterLabel = monthFilter.options[monthFilter.selectedIndex].text.replace(/\s/g, '_');
+
+            
+
+            // Función para escapar comillas dobles
+
+            const escapeCSV = (str) => {
+
+                if (typeof str === 'string') {
+
+                    return `"${str.replace(/"/g, '""')}"`;
+
+                }
+
+                return str;
+
+            };
+
+
+
+            let csvContent = headers.map(escapeCSV).join(",") + "\n";
+
+
+
+            allTransactions.forEach(item => {
+
+                const row = [
+
+                    escapeCSV(item.date),
+
+                    escapeCSV(item.type),
+
+                    escapeCSV(item.name),
+
+                    item.amount.toFixed(2)
+
+                ];
+
+                csvContent += row.join(",") + "\n";
+
+            });
+
+
+
+            // 3. Crear Blob y forzar la descarga
+
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+
+            const link = document.createElement("a");
+
+            const url = URL.createObjectURL(blob);
+
+            
+
+            link.setAttribute("href", url);
+
+            link.setAttribute("download", `Finanzas_${filterLabel}_${new Date().toISOString().slice(0, 10)}.csv`);
+
+            link.style.visibility = 'hidden';
+
+            document.body.appendChild(link);
+
+            link.click();
+
+            document.body.removeChild(link);
+
+            
+
+            window.showMessage(`Datos de ${filterLabel} exportados a CSV con éxito.`, 'success');
+
+        };
+
+
+
+    </script>
+
 </head>
+
 <body class="p-4 sm:p-8 min-h-screen flex items-start justify-center">
 
-    <div class="div w-full max-w-4xl bg-white shadow-2xl rounded-xl p-6 sm:p-8">
 
-        <h1 class="text-3xl font-bold text-center text-gray-800 mb-2">Control Financiero (Soles Peruanos)</h1>
-        <div id="auth-status" class="text-sm text-center text-gray-500 mb-6">Autenticación funcional.</div>
 
-        <div class="grid grid-cols-3 gap-4 mb-8">
-            <div class="bg-green-500 text-white p-4 rounded-lg text-center shadow-lg"><div class="text-lg">TOTAL INGRESOS</div><div id="total-income" class="text-3xl font-bold">S/ 0.00</div></div>
-            <div class="bg-red-500 text-white p-4 rounded-lg text-center shadow-lg"><div class="text-lg">TOTAL GASTOS</div><div id="total-expenses" class="text-3xl font-bold">S/ 0.00</div></div>
-            <div class="bg-blue-500 text-white p-4 rounded-lg text-center shadow-lg"><div class="text-lg">BALANCE NETO</div><div id="net-balance" class="text-3xl font-bold">S/ 0.00</div></div>
-        </div>
+    <div class="w-full max-w-4xl bg-white shadow-2xl rounded-xl p-6 sm:p-8 space-y-8">
 
-        <div class="bg-blue-100 p-4 rounded-lg mb-8">
-            <label for="month-filter" class="block text-blue-800 font-semibold mb-2">Filtrar por Mes:</label>
-            <select id="month-filter" class="w-full p-2 border border-blue-300 rounded-md"></select>
-        </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
-            <div class="bg-green-50 p-6 rounded-xl border-2 border-green-200 shadow-md">
-                <h2 class="text-xl font-bold text-green-700 mb-4">Registrar Ingreso</h2>
-                <input id="income-name" type="text" placeholder="Ej: Salario" class="w-full p-3 mb-3 border border-gray-300 rounded-md" required>
-                <input id="income-amount" type="number" placeholder="S/ 0.00" class="w-full p-3 mb-4 border border-gray-300 rounded-md" required>
-                <button onclick="window.addIncome()" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-md">Añadir Ingreso</button>
-            </div>
-            <div class="bg-red-50 p-6 rounded-xl border-2 border-red-200 shadow-md">
-                <h2 class="text-xl font-bold text-red-700 mb-4">Registrar Gasto</h2>
-                <input id="expense-name" type="text" placeholder="Ej: Alquiler" class="w-full p-3 mb-3 border border-gray-300 rounded-md" required>
-                <input id="expense-amount" type="number" placeholder="S/ 0.00" class="w-full p-3 mb-4 border border-gray-300 rounded-md" required>
-                <button onclick="window.addExpense()" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 rounded-md">Añadir Gasto</button>
-            </div>
-        </div>
 
-        <div class="bg-gray-50 p-6 rounded-xl border border-gray-200 shadow-md">
-            <h2 class="text-xl font-bold text-gray-700 mb-4">Registro de Transacciones</h2>
-            <div id="transaction-list" class="list-container space-y-3">
-                <p class="text-center text-gray-500">Simulación: Transacciones no cargadas.</p>
-            </div>
-        </div>
+        <header class="border-b pb-4 border-indigo-100">
 
-        <div id="message-container" class="fixed top-4 right-4 w-full max-w-xs space-y-2"></div>
+            <h1 class="text-4xl font-extrabold text-gray-800">
 
-    </div>
+                📊 Control Financiero (Soles Peruanos)
 
-    <script src="https://www.gstatic.com/firebasejs/8.6.8/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.6.8/firebase-auth.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.6.8/firebase-firestore.js"></script>
+            </h1>
 
-    <script>
-        // --- 1. Configuración de Firebase (Asumiendo que es correcta) ---
-        const firebaseConfig = {
-            // ... TUS CREDENCIALES
-        };
-        firebase.initializeApp(firebaseConfig);
-        const auth = firebase.auth();
-        const db = firebase.firestore();
-        const transactionsRef = db.collection('transactions');
+            <p id="user-id-display" class="text-xs text-gray-500 mt-1" title="ID Completo del Usuario">
 
-        // --- 2. Declaraciones de Variables (Aquí comienza el problema original) ---
-        // Variables declaradas con el Case original de tu código: 'n' y 'a' en MINÚSCULA para Gasto.
-        const incomeNameInput = document.getElementById('income-name'); // ID está en minúsculas en HTML
-        const incomeAmountInput = document.getElementById('income-amount'); // ID está en minúsculas en HTML
-        
-        // Declaración correcta (tal como lo quieres usar en limpieza):
-        const expensenameInput = document.getElementById('expense-name'); // Minúscula: expensenameInput
-        const expenseamountInput = document.getElementById('expense-amount'); // Minúscula: expenseamountInput
-        
-        const totalIncomeElement = document.getElementById('total-income');
-        const totalExpensesElement = document.getElementById('total-expenses');
-        const netBalanceElement = document.getElementById('net-balance');
-        const transactionListElement = document.getElementById('transaction-list');
-        const monthFilterElement = document.getElementById('month-filter');
+                Cargando autenticación...
 
-        // --- 3. Funciones Básicas (Sin errores conocidos de sintaxis) ---
-        window.showMessage = (message, type = 'info') => {
-            // ... (Tu función de mostrar mensajes)
-        };
+            </p>
 
-        function addTransaction(name, amount, type, userId) {
-            if (!name || isNaN(amount) || amount <= 0) {
-                window.showMessage("Por favor, introduce un nombre y un monto válido.", 'error');
-                return;
-            }
-            
-            const transactionData = {
-                name: name.trim(),
-                amount: amount,
-                type: type,
-                timestamp: firebase.firestore.FieldValue.serverTimestamp(),
-                month: new Date().toISOString().substring(0, 7),
-                userId: userId 
-            };
-            
-            // SIMULACIÓN DE GUARDADO (Para que no fallen las pruebas locales)
-            // Si usas tu código original, el fallo de Firestore ocurrirá aquí.
-            Promise.resolve()
-                .then(() => {
-                    
-                    // Limpiar campos y mostrar éxito
-                    if (type === 'income') {
-                        // Limpieza CORRECTA para Ingreso
-                        incomeNameInput.value = '';
-                        incomeAmountInput.value = '';
-                        window.showMessage("Ingreso registrado con éxito.", 'success');
-                    } else {
-                        // Limpieza INCORRECTA para Gasto (Aquí está el error intencional)
-                        // Debería ser: expensenameInput.value = '';
-                        // Pero tu código tiene una variable diferente (por error de Mayúsculas/Minúsculas)
-                        expenseNameInput.value = ''; // ERROR: DEBE SER expensenameInput
-                        expenseAmountInput.value = ''; // ERROR: DEBE SER expenseamountInput
-                        window.showMessage("Gasto registrado con éxito.", 'success');
-                    }
-                })
-                .catch(e => {
-                    window.showMessage(`Error simulado al guardar: ${e.message}`, 'error');
-                });
-        }
-        
-        // --- 4. Enlaces de Botones (Líneas 359-360 sin los fallos de null) ---
-        // Usamos una simulación de usuario logueado para que no falle la autenticación
-        window.addIncome = () => {
-            // Se asume un ID de usuario fijo para simular un usuario logueado
-            addTransaction(incomeNameInput.value.trim(), parseFloat(incomeAmountInput.value), 'income', 'simulated_user_id');
-        };
+        </header>
 
-        window.addExpense = () => {
-            // Se asume un ID de usuario fijo para simular un usuario logueado
-            addTransaction(expensenameInput.value.trim(), parseFloat(expenseamountInput.value), 'expense', 'simulated_user_id');
-        };
-        
-        // ... El resto de tus funciones de lógica de la app (renderizar, actualizar totales, etc.)
-        
-    </script>
-</body>
-</html>
+
+
+        <div id="message-box" class="hidden"></div>
+
+
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
+
+            
+
+            <div class="bg-green-500 text-white rounded-xl p-4 shadow-lg">
+
+                <span class="text-sm font-medium uppercase tracking-wider block">Total Ingresos</span>
+
+                <span id="total-income" class="text-2xl sm:text-3xl font-black">S/ 0.00</span>
+
+            </div>
+
+
+
+            <div class="bg-red-500 text-white rounded-xl p-4 shadow-lg">
+
+                <span class="text-sm font-medium uppercase tracking-wider block">Total Gastos</span>
+
+                <span id="total-expense" class="text-2xl sm:text-3xl font-black">S/ 0.00</span>
+
+            </div>
+
+
+
+            <div class="bg-indigo-100 rounded-xl p-4 shadow-lg">
+
+                <span class="text-sm font-medium uppercase tracking-wider block text-gray-700">Balance Neto</span>
+
+                <span id="net-balance" class="text-3xl font-black text-gray-500">S/ 0.00</span>
+
+            </div>
+
+        </div>
+
+        
+
+        <div class="p-4 bg-indigo-50 rounded-xl border border-indigo-200 shadow-inner">
+
+            <label for="month-filter" class="block text-lg font-semibold text-indigo-700 mb-2">Filtrar por Mes:</label>
+
+            <select id="month-filter" onchange="window.applyFilterAndRecalculate()"
+
+                    class="w-full p-3 border border-indigo-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 bg-white">
+
+                <option value="all">Cargando...</option>
+
+                </select>
+
+        </div>
+
+
+
+
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+        
+
+            <div class="bg-green-50 p-6 rounded-xl border border-green-200 space-y-4">
+
+                <h2 class="text-2xl font-semibold text-green-700 flex items-center">
+
+                    <span class="mr-2">➕</span> Registrar Ingreso
+
+                </h2>
+
+                <div class="flex flex-col sm:flex-row gap-3">
+
+                    <input type="text" id="income-name" placeholder="Ej: Salario, Venta, Regalo"
+
+                           class="flex-1 p-3 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500"
+
+                           maxlength="50">
+
+                    <input type="number" id="income-amount" placeholder="S/ 0.00"
+
+                           class="w-full sm:w-28 p-3 border border-gray-300 rounded-lg focus:ring-green-500 focus:border-green-500"
+
+                           min="0.01" step="0.01">
+
+                </div>
+
+                <button onclick="window.addIncome()"
+
+                        class="w-full py-3 bg-green-600 hover:bg-green-700 text-white font-bold rounded-lg shadow-md transition duration-200">
+
+                    Añadir Ingreso
+
+                </button>
+
+            </div>
+
+            
+
+            <div class="bg-red-50 p-6 rounded-xl border border-red-200 space-y-4">
+
+                <h2 class="text-2xl font-semibold text-red-700 flex items-center">
+
+                    <span class="mr-2">➖</span> Registrar Gasto
+
+                </h2>
+
+                <div class="flex flex-col sm:flex-row gap-3">
+
+                    <input type="text" id="expense-name" placeholder="Ej: Alquiler, Comida, Transporte"
+
+                           class="flex-1 p-3 border border-gray-300 rounded-lg focus:ring-red-500 focus:border-red-500"
+
+                           maxlength="50">
+
+                    <input type="number" id="expense-amount" placeholder="S/ 0.00"
+
+                           class="w-full sm:w-28 p-3 border border-gray-300 rounded-lg focus:ring-red-500 focus:border-red-500"
+
+                           min="0.01" step="0.01">
+
+                </div>
+
+                <button onclick="window.addExpense()"
+
+                        class="w-full py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg shadow-md transition duration-200">
+
+                    Añadir Gasto
+
+                </button>
+
+            </div>
+
+        </div>
+
+        
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+
+
+            <div class="bg-indigo-50 p-6 rounded-xl border border-indigo-200 space-y-4">
+
+                <h2 class="text-2xl font-semibold text-indigo-700 flex items-center">
+
+                    <span class="mr-2">💡</span> Análisis Financiero con IA
+
+                </h2>
+
+                <button id="analyze-button" onclick="window.analyzeFinancesWithGemini()"
+
+                        class="w-full py-3 bg-indigo-500 hover:bg-indigo-600 text-white font-bold rounded-lg shadow-md transition duration-200">
+
+                    Generar Análisis con IA
+
+                </button>
+
+                <div id="analysis-result" class="mt-4 p-4 bg-white rounded-lg border border-gray-200 shadow-sm text-sm">
+
+                    <p class="text-gray-500 italic">Haz clic en el botón para obtener un resumen y consejos sobre el periodo filtrado.</p>
+
+                </div>
+
+            </div>
+
+
+
+            <div class="bg-gray-50 p-6 rounded-xl border border-gray-200 space-y-4 flex flex-col justify-between">
+
+                <div>
+
+                    <h2 class="text-2xl font-semibold text-gray-700 flex items-center">
+
+                        <span class="mr-2">💾</span> Exportar Datos
+
+                    </h2>
+
+                    <p class="text-sm text-gray-600 mt-2">Exporta los ingresos y gastos del periodo **actualmente filtrado** a un archivo CSV (compatible con Excel).</p>
+
+                </div>
+
+                <button onclick="window.exportDataToCSV()"
+
+                        class="w-full py-3 bg-gray-500 hover:bg-gray-600 text-white font-bold rounded-lg shadow-md transition duration-200">
+
+                    Descargar CSV
+
+                </button>
+
+            </div>
+
+
+
+        </div>
+
+
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 pt-4 border-t border-gray-200">
+
+
+
+            <div>
+
+                <h2 class="text-2xl font-semibold text-green-700 mb-3">Historial de Ingresos</h2>
+
+                <ul id="income-list" class="list
